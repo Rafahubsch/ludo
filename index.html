@@ -1,1765 +1,1166 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ludo 3D - Família, Robô & Online</title>
+    <title>Ludo 3D Multiplayer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        window.FB = {
-            initializeApp, getAuth, signInAnonymously, signInWithCustomToken,
-            getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection
-        };
-    </script>
-
     <style>
-        * {
-            user-select: none;
-            -webkit-user-select: none;
-            touch-action: manipulation;
-        }
-        body {
-            font-family: 'Nunito', sans-serif;
-            background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 70%, #020617 100%);
-            color: #f8fafc;
-            overflow: hidden;
-            height: 100vh;
-            width: 100vw;
-            margin: 0;
-            padding: 0;
-        }
-        .font-game {
-            font-family: 'Fredoka One', cursive;
-        }
-        #webgl-canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-            outline: none;
-        }
+        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; background: #1a202c; color: white; user-select: none; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; outline: none; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
         
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.88);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
-        }
-        .glass-btn {
-            background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05));
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.25);
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .glass-btn:hover {
-            background: linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0.12));
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-        }
-        .glass-btn:active {
-            transform: translateY(1px);
-        }
+        .pointer-events-auto { pointer-events: auto; }
+        .pointer-events-none { pointer-events: none; }
+        
+        /* Screens */
+        .screen { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: center; background: rgba(26, 32, 44, 0.85); backdrop-filter: blur(8px); }
+        .screen.active { display: flex; }
+        
+        #game-ui { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; flex-direction: column; justify-content: space-between; padding: 1.5rem; }
+        #game-ui.active { display: flex; }
 
-        @keyframes glow-pulse {
-            0%, 100% { box-shadow: 0 0 15px rgba(245, 158, 11, 0.5); }
-            50% { box-shadow: 0 0 30px rgba(245, 158, 11, 0.9); }
-        }
-        .pulse-glow {
-            animation: glow-pulse 2s infinite ease-in-out;
-        }
+        .btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 14px 28px; border-radius: 999px; font-weight: bold; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.3); color: white; border: none; text-align: center; text-transform: uppercase; letter-spacing: 1px;}
+        .btn:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
+        .btn:active:not(:disabled) { transform: translateY(1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .btn-green { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: #000; }
+        .btn-red { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
 
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 10px;
-        }
+        .glass-panel { background: rgba(255,255,255,0.05); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        .color-red { color: #ff4757; }
+        .color-green { color: #2ed573; }
+        .color-yellow { color: #ffa502; }
+        .color-blue { color: #1e90ff; }
+        
+        .turn-indicator { font-size: 1.25rem; font-weight: 800; padding: 10px 24px; border-radius: 999px; background: rgba(0,0,0,0.7); text-transform: uppercase; letter-spacing: 2px; transition: all 0.3s ease; }
+        .turn-red { border-bottom: 4px solid #ff4757; color: #ff4757; text-shadow: 0 0 10px rgba(255,71,87,0.5); }
+        .turn-green { border-bottom: 4px solid #2ed573; color: #2ed573; text-shadow: 0 0 10px rgba(46,213,115,0.5); }
+        .turn-yellow { border-bottom: 4px solid #ffa502; color: #ffa502; text-shadow: 0 0 10px rgba(255,165,2,0.5); }
+        .turn-blue { border-bottom: 4px solid #1e90ff; color: #1e90ff; text-shadow: 0 0 10px rgba(30,144,255,0.5); }
+
+        .dice-btn-container { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); text-align: center; }
+        .dice-btn { width: 90px; height: 90px; border-radius: 24px; background: linear-gradient(135deg, #ffffff 0%, #e0e0e0 100%); color: #111; font-size: 3rem; border: 4px solid #333; cursor: pointer; box-shadow: 0 10px 25px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .dice-btn:hover:not(:disabled) { transform: scale(1.05) translateY(-5px); }
+        .dice-btn:active:not(:disabled) { transform: scale(0.95); }
+        .dice-btn:disabled { opacity: 0.6; cursor: not-allowed; background: #555; color: #888; border-color: #222; }
+        
+        .floating { animation: float 4s ease-in-out infinite; }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-15px); } 100% { transform: translateY(0px); } }
+
+        /* Custom Input */
+        input:focus { outline: none; box-shadow: 0 0 0 3px rgba(102,126,234,0.5); }
     </style>
 </head>
-<body class="relative overflow-hidden select-none">
+<body>
 
-    <div id="canvas-container" class="absolute inset-0 w-full h-full z-0 cursor-grab active:cursor-grabbing">
-        <canvas id="webgl-canvas"></canvas>
+<div id="canvas-container"></div>
+
+<div id="ui-layer">
+    <!-- Main Menu -->
+    <div id="screen-menu" class="screen active space-y-8 pointer-events-auto">
+        <h1 class="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 tracking-widest floating text-center" style="font-family: 'Arial Black', sans-serif;">LUDO 3D</h1>
+        <div class="flex flex-col space-y-4 w-72">
+            <button class="btn py-4" onclick="startOfflineGame('local')"><i class="fas fa-users mr-3"></i> Family Mode</button>
+            <button class="btn btn-green py-4" onclick="startOfflineGame('vs_robot')"><i class="fas fa-robot mr-3"></i> Play vs Robot</button>
+            <button class="btn btn-red py-4" onclick="showScreen('screen-online-menu')"><i class="fas fa-globe mr-3"></i> Play Online</button>
+        </div>
+        <div class="text-gray-400 text-sm mt-8 opacity-70">Single File Ludo Experience</div>
     </div>
 
-    <header class="absolute top-0 left-0 right-0 z-20 p-3 sm:p-4 flex justify-between items-center pointer-events-none">
-        <div class="flex items-center space-x-3 pointer-events-auto">
-            <div class="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 p-2.5 sm:p-3 rounded-2xl shadow-2xl flex items-center space-x-2.5 border border-amber-300/30">
-                <i class="fa-solid fa-dice-d6 text-white text-xl sm:text-2xl"></i>
-                <h1 class="font-game text-lg sm:text-2xl text-white tracking-wider drop-shadow-md">LUDO 3D ULTRA</h1>
+    <!-- Online Menu -->
+    <div id="screen-online-menu" class="screen space-y-8 pointer-events-auto">
+        <h2 class="text-5xl font-extrabold mb-4 text-white drop-shadow-lg">Multiplayer</h2>
+        <div class="glass-panel p-8 w-80 flex flex-col space-y-6">
+            <button class="btn py-4 w-full" onclick="createRoom()"><i class="fas fa-plus mr-2"></i> Host Game</button>
+            <div class="relative flex items-center justify-center my-2">
+                <div class="border-t border-gray-500 w-full"></div>
+                <span class="bg-transparent px-3 text-gray-400 absolute text-sm">OR</span>
             </div>
-            <span id="game-mode-badge" class="hidden sm:inline-flex items-center px-3 py-1.5 bg-indigo-950/80 border border-indigo-400/40 text-indigo-200 text-xs font-extrabold rounded-xl backdrop-blur-md shadow-lg">
-                <i class="fa-solid fa-users mr-1.5 text-indigo-400"></i> Em Família
-            </span>
-            <div id="room-code-display" class="hidden flex items-center space-x-2 bg-emerald-950/90 border border-emerald-400/50 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-300">
-                <span>Sala: <strong id="room-code-text" class="text-white font-mono text-sm">----</strong></span>
-                <button id="btn-copy-code" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-0.5 rounded text-[10px] ml-1">
-                    <i class="fa-solid fa-copy"></i> Copiar
-                </button>
+            <div class="flex">
+                <input type="text" id="room-code-input" class="w-full px-4 py-3 rounded-l-xl text-black font-black text-center text-xl uppercase" placeholder="CODE" maxlength="5">
+                <button class="btn rounded-l-none rounded-r-xl px-6" onclick="joinRoom(document.getElementById('room-code-input').value.toUpperCase())">Join</button>
             </div>
         </div>
-
-        <div class="flex items-center space-x-2 pointer-events-auto">
-            <button id="btn-sound" title="Alternar Som" class="glass-btn w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-white text-lg">
-                <i class="fa-solid fa-volume-high"></i>
-            </button>
-            <button id="btn-auto-cam" title="Foco Automático de Câmera" class="glass-btn px-3 h-10 sm:h-12 rounded-2xl flex items-center justify-center text-amber-300 text-sm font-bold space-x-1.5 border-amber-400/40">
-                <i class="fa-solid fa-video text-amber-400"></i>
-                <span class="hidden sm:inline">Câmera Foco</span>
-            </button>
-            <button id="btn-reset-cam" title="Resetar Câmera" class="glass-btn w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-white text-lg">
-                <i class="fa-solid fa-camera-rotate"></i>
-            </button>
-            <button id="btn-rules" title="Regras do Jogo" class="glass-btn px-3.5 h-10 sm:h-12 rounded-2xl flex items-center justify-center text-white text-sm font-bold space-x-1.5">
-                <i class="fa-solid fa-book-open text-amber-400"></i>
-                <span class="hidden sm:inline">Regras</span>
-            </button>
-            <button id="btn-new-game" title="Novo Jogo / Modo" class="glass-btn px-3.5 h-10 sm:h-12 bg-emerald-600/70 hover:bg-emerald-500/90 rounded-2xl flex items-center justify-center text-white text-sm font-bold space-x-1.5 border-emerald-400/50 shadow-lg">
-                <i class="fa-solid fa-rotate-right"></i>
-                <span class="hidden sm:inline">Novo Jogo</span>
-            </button>
-        </div>
-    </header>
-
-    <div class="absolute top-16 sm:top-20 left-3 sm:left-4 z-20 flex flex-col space-y-2.5 pointer-events-none max-w-[190px] sm:max-w-[230px]">
-        <div id="player-card-0" class="player-card glass-panel p-2.5 rounded-2xl flex items-center justify-between border-l-4 border-red-500 transition-all duration-300 opacity-60">
-            <div class="flex items-center space-x-2.5 overflow-hidden">
-                <div class="w-8 h-8 rounded-xl bg-red-500/20 border border-red-500/60 flex items-center justify-center text-red-400 font-bold shrink-0 shadow-inner">
-                    <i class="fa-solid fa-chess-pawn text-lg"></i>
-                </div>
-                <div class="truncate">
-                    <p class="player-name font-extrabold text-xs sm:text-sm text-white truncate">Jogador 1</p>
-                    <p class="player-type text-[10px] text-gray-300 font-semibold"><i class="fa-solid fa-user text-red-400"></i> Humano</p>
-                </div>
-            </div>
-            <div class="pawns-home-count font-game text-xs text-red-400 bg-red-950/80 border border-red-500/30 px-2 py-1 rounded-xl">0/4</div>
-        </div>
-
-        <div id="player-card-1" class="player-card glass-panel p-2.5 rounded-2xl flex items-center justify-between border-l-4 border-emerald-500 transition-all duration-300 opacity-60">
-            <div class="flex items-center space-x-2.5 overflow-hidden">
-                <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/60 flex items-center justify-center text-emerald-400 font-bold shrink-0 shadow-inner">
-                    <i class="fa-solid fa-chess-pawn text-lg"></i>
-                </div>
-                <div class="truncate">
-                    <p class="player-name font-extrabold text-xs sm:text-sm text-white truncate">Jogador 2</p>
-                    <p class="player-type text-[10px] text-gray-300 font-semibold"><i class="fa-solid fa-robot text-emerald-400"></i> Robô</p>
-                </div>
-            </div>
-            <div class="pawns-home-count font-game text-xs text-emerald-400 bg-emerald-950/80 border border-emerald-500/30 px-2 py-1 rounded-xl">0/4</div>
-        </div>
-
-        <div id="player-card-2" class="player-card glass-panel p-2.5 rounded-2xl flex items-center justify-between border-l-4 border-amber-500 transition-all duration-300 opacity-60">
-            <div class="flex items-center space-x-2.5 overflow-hidden">
-                <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/60 flex items-center justify-center text-amber-400 font-bold shrink-0 shadow-inner">
-                    <i class="fa-solid fa-chess-pawn text-lg"></i>
-                </div>
-                <div class="truncate">
-                    <p class="player-name font-extrabold text-xs sm:text-sm text-white truncate">Jogador 3</p>
-                    <p class="player-type text-[10px] text-gray-300 font-semibold"><i class="fa-solid fa-robot text-amber-400"></i> Robô</p>
-                </div>
-            </div>
-            <div class="pawns-home-count font-game text-xs text-amber-400 bg-amber-950/80 border border-amber-500/30 px-2 py-1 rounded-xl">0/4</div>
-        </div>
-
-        <div id="player-card-3" class="player-card glass-panel p-2.5 rounded-2xl flex items-center justify-between border-l-4 border-blue-500 transition-all duration-300 opacity-60">
-            <div class="flex items-center space-x-2.5 overflow-hidden">
-                <div class="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/60 flex items-center justify-center text-blue-400 font-bold shrink-0 shadow-inner">
-                    <i class="fa-solid fa-chess-pawn text-lg"></i>
-                </div>
-                <div class="truncate">
-                    <p class="player-name font-extrabold text-xs sm:text-sm text-white truncate">Jogador 4</p>
-                    <p class="player-type text-[10px] text-gray-300 font-semibold"><i class="fa-solid fa-robot text-blue-400"></i> Robô</p>
-                </div>
-            </div>
-            <div class="pawns-home-count font-game text-xs text-blue-400 bg-blue-950/80 border border-blue-500/30 px-2 py-1 rounded-xl">0/4</div>
-        </div>
+        <button class="text-gray-300 hover:text-white underline font-bold" onclick="showScreen('screen-menu')">Back to Menu</button>
     </div>
 
-    <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center space-y-3 w-full max-w-sm px-4 pointer-events-auto">
-        <div id="turn-banner" class="glass-panel px-6 py-2.5 rounded-2xl text-center shadow-2xl transition-all duration-300 border-indigo-400/40 flex items-center justify-center space-x-2.5 w-full">
-            <div id="turn-color-indicator" class="w-3.5 h-3.5 rounded-full bg-red-500 animate-ping"></div>
-            <span id="turn-banner-text" class="font-extrabold text-sm sm:text-base text-white tracking-wide">Vez do Jogador Vermelho!</span>
-        </div>
-
-        <div class="glass-panel p-3.5 rounded-3xl flex items-center justify-between w-full shadow-2xl border-white/20">
-            <div class="flex flex-col pl-2">
-                <span class="text-[11px] text-indigo-300 font-extrabold uppercase tracking-wider">Número na Mesa</span>
-                <div class="flex items-center space-x-2">
-                    <span id="dice-result-text" class="font-game text-3xl text-amber-400 drop-shadow-md">--</span>
-                    <span id="table-dice-status" class="text-[10px] bg-indigo-950/80 border border-indigo-500/40 text-indigo-200 px-2 py-0.5 rounded-md font-bold">Na mesa 🎲</span>
-                </div>
-            </div>
-
-            <button id="btn-roll-action" class="glass-btn px-6 py-3.5 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-400 hover:to-red-400 text-white font-game rounded-2xl text-base sm:text-lg shadow-xl border-amber-300/50 flex items-center space-x-2 transform transition active:scale-95">
-                <i class="fa-solid fa-dice-d6 text-xl"></i>
-                <span>ROLAR DADO</span>
-            </button>
-        </div>
-    </div>
-
-    <div id="modal-setup" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xl">
-        <div class="glass-panel max-w-lg w-full p-6 sm:p-8 rounded-3xl border border-white/20 shadow-2xl overflow-y-auto max-h-[92vh]">
-            <div class="text-center mb-5">
-                <div class="inline-flex p-3.5 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-purple-600 text-white text-3xl mb-2 shadow-2xl border border-amber-300/40">
-                    <i class="fa-solid fa-dice-d20"></i>
-                </div>
-                <h2 class="font-game text-2xl sm:text-3xl text-white tracking-wide">LUDO 3D - Modo de Jogo</h2>
-                <p class="text-xs sm:text-sm text-indigo-200 mt-1 font-semibold">Jogue no mesmo aparelho, contra robôs ou online com amigos!</p>
-            </div>
-
-            <div class="grid grid-cols-3 gap-1.5 p-1.5 bg-slate-950/80 rounded-2xl mb-5 border border-white/10 shadow-inner">
-                <button id="mode-tab-family" class="py-2 rounded-xl font-extrabold text-[11px] sm:text-xs transition-all bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg">
-                    <i class="fa-solid fa-users block mb-1 text-sm"></i> Em Família
-                </button>
-                <button id="mode-tab-bot" class="py-2 rounded-xl font-extrabold text-[11px] sm:text-xs transition-all text-gray-400 hover:text-white">
-                    <i class="fa-solid fa-robot block mb-1 text-sm"></i> Contra Robô
-                </button>
-                <button id="mode-tab-online" class="py-2 rounded-xl font-extrabold text-[11px] sm:text-xs transition-all text-gray-400 hover:text-white">
-                    <i class="fa-solid fa-globe block mb-1 text-sm"></i> Online
-                </button>
-            </div>
-
-            <!-- Local / Bot Config Panel -->
-            <div id="panel-local-config" class="space-y-2.5 mb-5">
-                <!-- Red Slot -->
-                <div class="p-2.5 bg-red-950/40 rounded-2xl border border-red-500/40 flex items-center justify-between">
-                    <div class="flex items-center space-x-2.5">
-                        <div class="w-7 h-7 rounded-xl bg-red-500 flex items-center justify-center text-white font-bold text-xs shadow-md">1</div>
-                        <input type="text" id="p0-name" value="Vermelho" class="bg-slate-900/90 border border-red-500/50 rounded-xl px-2 py-1 text-xs text-white font-bold w-28 sm:w-36 focus:outline-none focus:border-red-400">
-                    </div>
-                    <select id="p0-type" class="bg-slate-900 border border-red-500/50 text-xs rounded-xl px-2 py-1 text-white font-bold focus:outline-none">
-                        <option value="human">👤 Humano</option>
-                    </select>
-                </div>
-
-                <!-- Green Slot -->
-                <div class="p-2.5 bg-emerald-950/40 rounded-2xl border border-emerald-500/40 flex items-center justify-between">
-                    <div class="flex items-center space-x-2.5">
-                        <div class="w-7 h-7 rounded-xl bg-emerald-500 flex items-center justify-center text-white font-bold text-xs shadow-md">2</div>
-                        <input type="text" id="p1-name" value="Verde" class="bg-slate-900/90 border border-emerald-500/50 rounded-xl px-2 py-1 text-xs text-white font-bold w-28 sm:w-36 focus:outline-none focus:border-emerald-400">
-                    </div>
-                    <select id="p1-type" class="bg-slate-900 border border-emerald-500/50 text-xs rounded-xl px-2 py-1 text-white font-bold focus:outline-none">
-                        <option value="human">👤 Humano</option>
-                        <option value="bot-easy">🤖 Robô (Fácil)</option>
-                        <option value="bot-medium" selected>🤖 Robô (Médio)</option>
-                        <option value="bot-hard">🤖 Robô (Pro)</option>
-                    </select>
-                </div>
-
-                <!-- Yellow Slot -->
-                <div class="p-2.5 bg-amber-950/40 rounded-2xl border border-amber-500/40 flex items-center justify-between">
-                    <div class="flex items-center space-x-2.5">
-                        <div class="w-7 h-7 rounded-xl bg-amber-500 flex items-center justify-center text-white font-bold text-xs shadow-md">3</div>
-                        <input type="text" id="p2-name" value="Amarelo" class="bg-slate-900/90 border border-amber-500/50 rounded-xl px-2 py-1 text-xs text-white font-bold w-28 sm:w-36 focus:outline-none focus:border-amber-400">
-                    </div>
-                    <select id="p2-type" class="bg-slate-900 border border-amber-500/50 text-xs rounded-xl px-2 py-1 text-white font-bold focus:outline-none">
-                        <option value="human">👤 Humano</option>
-                        <option value="bot-medium" selected>🤖 Robô (Médio)</option>
-                        <option value="none">🚫 Desativado</option>
-                    </select>
-                </div>
-
-                <!-- Blue Slot -->
-                <div class="p-2.5 bg-blue-950/40 rounded-2xl border border-blue-500/40 flex items-center justify-between">
-                    <div class="flex items-center space-x-2.5">
-                        <div class="w-7 h-7 rounded-xl bg-blue-500 flex items-center justify-center text-white font-bold text-xs shadow-md">4</div>
-                        <input type="text" id="p3-name" value="Azul" class="bg-slate-900/90 border border-blue-500/50 rounded-xl px-2 py-1 text-xs text-white font-bold w-28 sm:w-36 focus:outline-none focus:border-blue-400">
-                    </div>
-                    <select id="p3-type" class="bg-slate-900 border border-blue-500/50 text-xs rounded-xl px-2 py-1 text-white font-bold focus:outline-none">
-                        <option value="human">👤 Humano</option>
-                        <option value="bot-medium" selected>🤖 Robô (Médio)</option>
-                        <option value="none">🚫 Desativado</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Online Mode Panel -->
-            <div id="panel-online-config" class="hidden space-y-4 mb-5">
-                <div class="bg-slate-900/80 p-4 rounded-2xl border border-indigo-500/30 space-y-3">
-                    <div>
-                        <label class="block text-xs font-extrabold text-indigo-300 uppercase mb-1">Seu Nome Online</label>
-                        <input type="text" id="online-player-name" value="Jogador Online" class="w-full bg-slate-950 border border-indigo-500/50 rounded-xl px-3 py-2 text-sm text-white font-bold focus:outline-none focus:border-indigo-400">
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-2 pt-2">
-                        <button id="btn-subtab-create" class="py-2 rounded-xl text-xs font-extrabold bg-indigo-600 text-white shadow-md">➕ Criar Sala</button>
-                        <button id="btn-subtab-join" class="py-2 rounded-xl text-xs font-extrabold bg-slate-800 text-gray-300 hover:text-white">🔑 Entrar em Sala</button>
-                    </div>
-
-                    <!-- Create Room View -->
-                    <div id="view-online-create" class="space-y-3 pt-2">
-                        <p class="text-xs text-indigo-200">Você será o Host da sala. Escolha a sua cor:</p>
-                        <select id="online-host-color" class="w-full bg-slate-950 border border-indigo-500/50 text-xs rounded-xl px-3 py-2 text-white font-bold focus:outline-none">
-                            <option value="0">🔴 Vermelho (Primeiro a jogar)</option>
-                            <option value="1">🟢 Verde</option>
-                            <option value="2">🟡 Amarelo</option>
-                            <option value="3">🔵 Azul</option>
-                        </select>
-                        <button id="btn-action-create-room" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg flex items-center justify-center space-x-2">
-                            <i class="fa-solid fa-plus-circle"></i>
-                            <span>Gerar Sala Online</span>
-                        </button>
-                    </div>
-
-                    <!-- Join Room View -->
-                    <div id="view-online-join" class="hidden space-y-3 pt-2">
-                        <div>
-                            <label class="block text-xs font-extrabold text-indigo-300 uppercase mb-1">Código da Sala</label>
-                            <input type="text" id="input-room-code" placeholder="Ex: LUDO-8492" class="w-full bg-slate-950 border border-indigo-500/50 rounded-xl px-3 py-2 text-sm text-white font-bold uppercase focus:outline-none focus:border-indigo-400">
-                        </div>
-                        <button id="btn-action-join-room" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs shadow-lg flex items-center justify-center space-x-2">
-                            <i class="fa-solid fa-right-to-bracket"></i>
-                            <span>Entrar na Sala</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <button id="btn-start-game" class="w-full py-4 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 hover:from-emerald-400 hover:to-cyan-500 text-white font-game text-xl rounded-2xl shadow-2xl border border-teal-300/40 transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center space-x-2">
-                <i class="fa-solid fa-play text-xl"></i>
-                <span id="btn-start-game-text">INICIAR JOGO</span>
-            </button>
-        </div>
-    </div>
-
-    <div id="modal-rules" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-        <div class="glass-panel max-w-md w-full p-6 rounded-3xl border border-white/20 shadow-2xl relative">
-            <button id="btn-close-rules" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-            <h3 class="font-game text-2xl text-white mb-4 flex items-center">
-                <i class="fa-solid fa-book-open text-amber-400 mr-2"></i> Regras do Ludo
-            </h3>
-            <div class="space-y-3 text-xs sm:text-sm text-gray-200 max-h-80 overflow-y-auto pr-2 leading-relaxed">
-                <p><strong>🎯 Objetivo:</strong> Levar todos os seus 4 peões da base até o centro do tabuleiro antes dos adversários.</p>
-                <p><strong>🎲 Saída da Base:</strong> Você precisa tirar o número <strong>6</strong> no dado na mesa para liberar um peão da base para a pista.</p>
-                <p><strong>⚡ Bônus do 6:</strong> Sempre que tirar 6 no dado, você ganha uma rodada extra!</p>
-                <p><strong>⚔️ Captura:</strong> Se o seu peão parar na mesma casa de um peão adversário, o peão dele é capturado e enviado de volta para a base!</p>
-                <p><strong>⭐ Casas Seguras:</strong> Casas com estrelas douradas são zonas de proteção contra capturas.</p>
-                <p><strong>🏁 Chegada:</strong> Para entrar na zona final e vencer, você precisa tirar a quantidade exata de passos no dado.</p>
-            </div>
-            <button id="btn-understand-rules" class="mt-5 w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold rounded-2xl text-sm shadow-lg">
-                Entendi!
-            </button>
-        </div>
-    </div>
-
-    <div id="modal-victory" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl">
-        <div class="glass-panel max-w-sm w-full p-6 text-center rounded-3xl border border-amber-400/50 shadow-2xl">
-            <div class="w-20 h-20 mx-auto mb-3 rounded-3xl bg-gradient-to-tr from-amber-400 via-yellow-300 to-amber-500 text-amber-950 flex items-center justify-center text-4xl shadow-2xl border border-yellow-200 animate-bounce">
-                <i class="fa-solid fa-trophy"></i>
-            </div>
-            <h2 class="font-game text-3xl text-amber-300 mb-1">VITÓRIA!</h2>
-            <p id="winner-text-name" class="font-extrabold text-xl text-white mb-4">Jogador Vermelho venceu!</p>
-            <p class="text-xs text-indigo-200 mb-6 font-semibold">Parabéns! Excelente estratégia na mesa!</p>
-            <button id="btn-victory-restart" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-white font-game text-lg rounded-2xl shadow-xl">
-                JOGAR NOVAMENTE
-            </button>
-        </div>
-    </div>
-
-    <!-- Toast Notification Overlay -->
-    <div id="toast-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center space-y-2"></div>
-
-    <script>
-        class AudioEngine {
-            constructor() {
-                this.ctx = null;
-                this.muted = false;
-            }
-            init() {
-                if (!this.ctx) {
-                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                    if (AudioCtx) this.ctx = new AudioCtx();
-                }
-            }
-            playTone(freq, type, duration, gainVal = 0.1) {
-                if (this.muted || !this.ctx) return;
-                try {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = type;
-                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-                    gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + duration);
-                } catch(e){}
-            }
-            playDiceRoll() {
-                if (this.muted) return;
-                this.init();
-                for (let i = 0; i < 6; i++) {
-                    setTimeout(() => {
-                        this.playTone(180 + Math.random() * 220, 'square', 0.05, 0.12);
-                    }, i * 60);
-                }
-            }
-            playPawnStep() {
-                this.init();
-                this.playTone(480, 'sine', 0.08, 0.15);
-            }
-            playCapture() {
-                this.init();
-                this.playTone(200, 'sawtooth', 0.2, 0.25);
-                setTimeout(() => this.playTone(120, 'sawtooth', 0.3, 0.25), 100);
-            }
-            playVictory() {
-                this.init();
-                const notes = [261, 329, 392, 523, 659, 783];
-                notes.forEach((n, i) => {
-                    setTimeout(() => this.playTone(n, 'triangle', 0.3, 0.2), i * 120);
-                });
-            }
-        }
-        const sounds = new AudioEngine();
-
-        const PLAYER_COLORS = [
-            { id: 0, key: 'red', name: 'Vermelho', hex: 0xef4444, bgClass: 'bg-red-500', textClass: 'text-red-400', camAngle: -Math.PI / 4 },
-            { id: 1, key: 'green', name: 'Verde', hex: 0x10b981, bgClass: 'bg-emerald-500', textClass: 'text-emerald-400', camAngle: Math.PI / 4 },
-            { id: 2, key: 'yellow', name: 'Amarelo', hex: 0xf59e0b, bgClass: 'bg-amber-500', textClass: 'text-amber-400', camAngle: (3 * Math.PI) / 4 },
-            { id: 3, key: 'blue', name: 'Azul', hex: 0x3b82f6, bgClass: 'bg-blue-500', textClass: 'text-blue-400', camAngle: -(3 * Math.PI) / 4 }
-        ];
-
-        const MAIN_TRACK_GRID = [
-            [1,6], [2,6], [3,6], [4,6], [5,6],
-            [6,5], [6,4], [6,3], [6,2], [6,1], [6,0],
-            [7,0],
-            [8,0], [8,1], [8,2], [8,3], [8,4], [8,5],
-            [9,6], [10,6], [11,6], [12,6], [13,6], [14,6],
-            [14,7],
-            [14,8], [13,8], [12,8], [11,8], [10,8], [9,8],
-            [8,9], [8,10], [8,11], [8,12], [8,13], [8,14],
-            [7,14],
-            [6,14], [6,13], [6,12], [6,11], [6,10], [6,9],
-            [5,8], [4,8], [3,8], [2,8], [1,8], [0,8],
-            [0,7], [0,6]
-        ];
-
-        const START_TRACK_INDEX = [0, 13, 26, 39];
-
-        const HOME_STRETCH_GRID = {
-            0: [[1,7], [2,7], [3,7], [4,7], [5,7], [6,7]],
-            1: [[7,1], [7,2], [7,3], [7,4], [7,5], [7,6]],
-            2: [[13,7], [12,7], [11,7], [10,7], [9,7], [8,7]],
-            3: [[7,13], [7,12], [7,11], [7,10], [7,9], [7,8]]
-        };
-
-        const BASE_SLOT_GRID = {
-            0: [[1.5, 1.5], [3.5, 1.5], [1.5, 3.5], [3.5, 3.5]],
-            1: [[11.5, 1.5], [13.5, 1.5], [11.5, 3.5], [13.5, 3.5]],
-            2: [[11.5, 11.5], [13.5, 11.5], [11.5, 13.5], [13.5, 13.5]],
-            3: [[1.5, 11.5], [3.5, 11.5], [1.5, 13.5], [3.5, 13.5]]
-        };
-
-        const SAFE_TILES = [0, 8, 13, 21, 26, 34, 39, 47];
-
-        let gameState = {
-            players: [],
-            currentTurnIndex: 0,
-            diceValue: 1,
-            hasRolled: false,
-            isAnimating: false,
-            winner: null
-        };
-
-        let isOnlineMode = false;
-        let onlineRoomId = null;
-        let onlineMySlotIndex = null;
-        let firebaseAuth = null;
-        let firebaseDb = null;
-        let firebaseUser = null;
-        let roomUnsubscribe = null;
-        let lastActionTimestamp = 0;
-
-        let scene, camera, renderer, boardGroup, pawnsGroup, diceMesh, diceBadgeGroup, ambientParticles;
-        let raycaster, mouse;
-        let diceTextures = [];
-
-        let isDraggingCam = false;
-        let autoCameraFocus = true;
-        let previousMousePosition = { x: 0, y: 0 };
-        let cameraTargetRadius = 22;
-        let cameraAngleX = 0;
-        let cameraAngleY = Math.PI / 3.8;
-        let targetCameraAngleX = 0;
-        let targetCameraAngleY = Math.PI / 3.8;
-
-        function updateCameraPosition() {
-            if (!camera) return;
-            const x = cameraTargetRadius * Math.sin(cameraAngleY) * Math.sin(cameraAngleX);
-            const y = cameraTargetRadius * Math.cos(cameraAngleY);
-            const z = cameraTargetRadius * Math.sin(cameraAngleY) * Math.cos(cameraAngleX);
-            camera.position.set(x, y, z);
-            camera.lookAt(0, 0, 0);
-        }
-
-        function createDiceTextures() {
-            const facePipCoords = {
-                1: [[0.5, 0.5]],
-                2: [[0.25, 0.25], [0.75, 0.75]],
-                3: [[0.25, 0.25], [0.5, 0.5], [0.75, 0.75]],
-                4: [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]],
-                5: [[0.25, 0.25], [0.75, 0.25], [0.5, 0.5], [0.25, 0.75], [0.75, 0.75]],
-                6: [[0.25, 0.2], [0.75, 0.2], [0.25, 0.5], [0.75, 0.5], [0.25, 0.8], [0.75, 0.8]]
-            };
-
-            for (let num = 1; num <= 6; num++) {
-                const canvas = document.createElement('canvas');
-                canvas.width = 512;
-                canvas.height = 512;
-                const ctx = canvas.getContext('2d');
-
-                const radGrad = ctx.createRadialGradient(256, 256, 50, 256, 256, 300);
-                radGrad.addColorStop(0, '#ffffff');
-                radGrad.addColorStop(1, '#f1f5f9');
-                ctx.fillStyle = radGrad;
-                ctx.fillRect(0, 0, 512, 512);
-
-                ctx.strokeStyle = '#cbd5e1';
-                ctx.lineWidth = 24;
-                ctx.strokeRect(12, 12, 488, 488);
-
-                ctx.strokeStyle = '#e2e8f0';
-                ctx.lineWidth = 12;
-                ctx.strokeRect(28, 28, 456, 456);
-
-                const pipColor = (num === 1) ? '#dc2626' : '#0f172a';
-                const pips = facePipCoords[num];
-
-                pips.forEach(p => {
-                    const x = p[0] * 512;
-                    const y = p[1] * 512;
-
-                    ctx.fillStyle = 'rgba(0,0,0,0.15)';
-                    ctx.beginPath();
-                    ctx.arc(x + 4, y + 4, 46, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    ctx.fillStyle = pipColor;
-                    ctx.beginPath();
-                    ctx.arc(x, y, 44, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    ctx.fillStyle = 'rgba(255,255,255,0.45)';
-                    ctx.beginPath();
-                    ctx.arc(x - 12, y - 12, 14, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-
-                const texture = new THREE.CanvasTexture(canvas);
-                diceTextures.push(texture);
-            }
-        }
-
-        function initThreeJS() {
-            const container = document.getElementById('canvas-container');
+    <!-- Lobby -->
+    <div id="screen-lobby" class="screen space-y-6 pointer-events-auto">
+        <div class="glass-panel p-8 text-center w-96 max-w-full">
+            <h2 class="text-xl text-purple-300 mb-1 font-bold tracking-widest uppercase">Room Code</h2>
+            <div id="lobby-code" class="text-6xl font-mono font-black tracking-widest text-white mb-8 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">XXXXX</div>
             
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x060913);
-            scene.fog = new THREE.FogExp2(0x060913, 0.010);
-
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            updateCameraPosition();
-
-            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('webgl-canvas'), antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-            createDiceTextures();
-
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
-            scene.add(ambientLight);
-
-            const dirLight = new THREE.DirectionalLight(0xfff7ed, 1.1);
-            dirLight.position.set(20, 32, 20);
-            dirLight.castShadow = true;
-            dirLight.shadow.mapSize.width = 2048;
-            dirLight.shadow.mapSize.height = 2048;
-            dirLight.shadow.camera.near = 0.5;
-            dirLight.shadow.camera.far = 80;
-            dirLight.shadow.camera.left = -18;
-            dirLight.shadow.camera.right = 18;
-            dirLight.shadow.camera.top = 18;
-            dirLight.shadow.camera.bottom = -18;
-            dirLight.shadow.bias = -0.0003;
-            scene.add(dirLight);
-
-            const fillLight = new THREE.PointLight(0x818cf8, 0.7, 45);
-            fillLight.position.set(-18, 18, -18);
-            scene.add(fillLight);
-
-            const warmCenterLight = new THREE.PointLight(0xf59e0b, 0.8, 30);
-            warmCenterLight.position.set(0, 9, 0);
-            scene.add(warmCenterLight);
-
-            createAmbientParticles();
-
-            raycaster = new THREE.Raycaster();
-            mouse = new THREE.Vector2();
-
-            boardGroup = new THREE.Group();
-            pawnsGroup = new THREE.Group();
-            scene.add(boardGroup);
-            scene.add(pawnsGroup);
-
-            create3DBoard();
-            create3DDice();
-
-            window.addEventListener('resize', onWindowResize);
-            setupCameraInteractions(container);
-            setupRaycasting(container);
-
-            animate();
-        }
-
-        function createAmbientParticles() {
-            const particleCount = 120;
-            const geometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(particleCount * 3);
-
-            for (let i = 0; i < particleCount * 3; i += 3) {
-                positions[i] = (Math.random() - 0.5) * 40;
-                positions[i + 1] = Math.random() * 20;
-                positions[i + 2] = (Math.random() - 0.5) * 40;
-            }
-
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-            const material = new THREE.PointsMaterial({
-                color: 0xf59e0b,
-                size: 0.18,
-                transparent: true,
-                opacity: 0.45,
-                blending: THREE.AdditiveBlending
-            });
-
-            ambientParticles = new THREE.Points(geometry, material);
-            scene.add(ambientParticles);
-        }
-
-        function gridToWorld(gx, gz, heightOffset = 0.2) {
-            const tileSize = 1.0;
-            const x = (gx - 7) * tileSize;
-            const z = (gz - 7) * tileSize;
-            return new THREE.Vector3(x, heightOffset, z);
-        }
-
-        function create3DBoard() {
-            const baseGeo = new THREE.BoxGeometry(16.4, 0.8, 16.4);
-            const baseMat = new THREE.MeshStandardMaterial({
-                color: 0x1e1b4b,
-                roughness: 0.3,
-                metalness: 0.2
-            });
-            const boardBase = new THREE.Mesh(baseGeo, baseMat);
-            boardBase.position.y = -0.4;
-            boardBase.receiveShadow = true;
-            boardGroup.add(boardBase);
-
-            const tableGeo = new THREE.CylinderGeometry(18, 18, 0.2, 64);
-            const tableMat = new THREE.MeshStandardMaterial({
-                color: 0x0f172a,
-                roughness: 0.8,
-                metalness: 0.1
-            });
-            const tableMesh = new THREE.Mesh(tableGeo, tableMat);
-            tableMesh.position.y = -0.9;
-            tableMesh.receiveShadow = true;
-            boardGroup.add(tableMesh);
-
-            const topGeo = new THREE.BoxGeometry(15.4, 0.12, 15.4);
-            const topMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2 });
-            const boardTop = new THREE.Mesh(topGeo, topMat);
-            boardTop.position.y = 0.06;
-            boardTop.receiveShadow = true;
-            boardGroup.add(boardTop);
-
-            const tileGeo = new THREE.BoxGeometry(0.92, 0.06, 0.92);
-
-            function createTile(gx, gz, colorHex, isRaised = false, symbol = null) {
-                const mat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.25, metalness: 0.1 });
-                const mesh = new THREE.Mesh(tileGeo, mat);
-                const pos = gridToWorld(gx, gz, isRaised ? 0.14 : 0.10);
-                mesh.position.copy(pos);
-                mesh.receiveShadow = true;
-                mesh.castShadow = true;
-                boardGroup.add(mesh);
-
-                if (symbol === 'star') {
-                    const starGeo = new THREE.ConeGeometry(0.22, 0.1, 5);
-                    const starMat = new THREE.MeshStandardMaterial({ color: 0xfcb316, metalness: 0.8, roughness: 0.2 });
-                    const starMesh = new THREE.Mesh(starGeo, starMat);
-                    starMesh.position.set(pos.x, pos.y + 0.06, pos.z);
-                    starMesh.rotation.x = Math.PI;
-                    starMesh.castShadow = true;
-                    boardGroup.add(starMesh);
-                }
-            }
-
-            const quadrantData = [
-                { x: 0, z: 0, color: 0xef4444 },
-                { x: 9, z: 0, color: 0x10b981 },
-                { x: 9, z: 9, color: 0xf59e0b },
-                { x: 0, z: 9, color: 0x3b82f6 }
-            ];
-
-            quadrantData.forEach(q => {
-                const quadGeo = new THREE.BoxGeometry(6, 0.1, 6);
-                const quadMat = new THREE.MeshStandardMaterial({ color: q.color, roughness: 0.3 });
-                const quadMesh = new THREE.Mesh(quadGeo, quadMat);
-                quadMesh.position.set((q.x + 3 - 7.5), 0.11, (q.z + 3 - 7.5));
-                quadMesh.receiveShadow = true;
-                boardGroup.add(quadMesh);
-
-                const innerGeo = new THREE.CylinderGeometry(2.1, 2.1, 0.12, 32);
-                const innerMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
-                const innerMesh = new THREE.Mesh(innerGeo, innerMat);
-                innerMesh.position.set((q.x + 3 - 7.5), 0.12, (q.z + 3 - 7.5));
-                innerMesh.receiveShadow = true;
-                boardGroup.add(innerMesh);
-            });
-
-            MAIN_TRACK_GRID.forEach((coord, idx) => {
-                let color = 0xe2e8f0;
-                let symbol = null;
-
-                if (SAFE_TILES.includes(idx)) symbol = 'star';
-
-                if (idx === 0) color = 0xfca5a5;
-                else if (idx === 13) color = 0x6ee7b7;
-                else if (idx === 26) color = 0xfde047;
-                else if (idx === 39) color = 0x93c5fd;
-
-                createTile(coord[0], coord[1], color, false, symbol);
-            });
-
-            const laneColors = [0xef4444, 0x10b981, 0xf59e0b, 0x3b82f6];
-            for (let c = 0; c < 4; c++) {
-                HOME_STRETCH_GRID[c].forEach((coord, i) => {
-                    if (i < 5) {
-                        createTile(coord[0], coord[1], laneColors[c], true);
-                    }
-                });
-            }
-
-            const centerGeo = new THREE.ConeGeometry(1.9, 0.5, 4);
-            const centerMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.1, metalness: 0.1 });
-            const centerMesh = new THREE.Mesh(centerGeo, centerMat);
-            centerMesh.position.set(0, 0.25, 0);
-            centerMesh.rotation.y = Math.PI / 4;
-            centerMesh.receiveShadow = true;
-            boardGroup.add(centerMesh);
-        }
-
-        function createPawnMesh(colorHex) {
-            const pawnGroup = new THREE.Group();
-
-            const mat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.12, metalness: 0.35 });
-            const goldMat = new THREE.MeshStandardMaterial({ color: 0xfcb316, roughness: 0.2, metalness: 0.85 });
-
-            const baseGeo = new THREE.CylinderGeometry(0.34, 0.40, 0.16, 32);
-            const baseMesh = new THREE.Mesh(baseGeo, mat);
-            baseMesh.position.y = 0.08;
-            baseMesh.castShadow = true;
-            pawnGroup.add(baseMesh);
-
-            const collarGeo = new THREE.TorusGeometry(0.28, 0.04, 16, 32);
-            const collarMesh = new THREE.Mesh(collarGeo, goldMat);
-            collarMesh.rotation.x = Math.PI / 2;
-            collarMesh.position.y = 0.18;
-            collarMesh.castShadow = true;
-            pawnGroup.add(collarMesh);
-
-            const bodyGeo = new THREE.ConeGeometry(0.28, 0.62, 32);
-            const bodyMesh = new THREE.Mesh(bodyGeo, mat);
-            bodyMesh.position.y = 0.42;
-            bodyMesh.castShadow = true;
-            pawnGroup.add(bodyMesh);
-
-            const headGeo = new THREE.SphereGeometry(0.24, 32, 32);
-            const headMesh = new THREE.Mesh(headGeo, mat);
-            headMesh.position.y = 0.80;
-            headMesh.castShadow = true;
-            pawnGroup.add(headMesh);
-
-            const pinGeo = new THREE.SphereGeometry(0.08, 16, 16);
-            const pinMesh = new THREE.Mesh(pinGeo, goldMat);
-            pinMesh.position.y = 1.05;
-            pinMesh.castShadow = true;
-            pawnGroup.add(pinMesh);
-
-            const ringGeo = new THREE.RingGeometry(0.44, 0.56, 32);
-            const ringMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide, transparent: true, opacity: 0 });
-            const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-            ringMesh.rotation.x = Math.PI / 2;
-            ringMesh.position.y = 0.02;
-            ringMesh.name = "selectionRing";
-            pawnGroup.add(ringMesh);
-
-            return pawnGroup;
-        }
-
-        function create3DDice() {
-            const materials = [
-                new THREE.MeshStandardMaterial({ map: diceTextures[4], roughness: 0.15 }), // +X (5)
-                new THREE.MeshStandardMaterial({ map: diceTextures[1], roughness: 0.15 }), // -X (2)
-                new THREE.MeshStandardMaterial({ map: diceTextures[0], roughness: 0.15 }), // +Y TOP (1)
-                new THREE.MeshStandardMaterial({ map: diceTextures[5], roughness: 0.15 }), // -Y BOT (6)
-                new THREE.MeshStandardMaterial({ map: diceTextures[2], roughness: 0.15 }), // +Z (3)
-                new THREE.MeshStandardMaterial({ map: diceTextures[3], roughness: 0.15 })  // -Z (4)
-            ];
-
-            const diceGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
-            diceMesh = new THREE.Mesh(diceGeo, materials);
-            diceMesh.position.set(0, 0.8, 0);
-            diceMesh.castShadow = true;
-            diceMesh.receiveShadow = true;
-            scene.add(diceMesh);
-
-            diceBadgeGroup = new THREE.Group();
-            scene.add(diceBadgeGroup);
-        }
-
-        function setupCameraInteractions(container) {
-            container.addEventListener('mousedown', (e) => {
-                isDraggingCam = true;
-                previousMousePosition = { x: e.clientX, y: e.clientY };
-            });
-
-            window.addEventListener('mousemove', (e) => {
-                if (!isDraggingCam) return;
-                const deltaX = e.clientX - previousMousePosition.x;
-                const deltaY = e.clientY - previousMousePosition.y;
-
-                cameraAngleX -= deltaX * 0.006;
-                cameraAngleY = Math.max(0.2, Math.min(Math.PI / 2 - 0.05, cameraAngleY - deltaY * 0.006));
-
-                targetCameraAngleX = cameraAngleX;
-                targetCameraAngleY = cameraAngleY;
-
-                updateCameraPosition();
-                previousMousePosition = { x: e.clientX, y: e.clientY };
-            });
-
-            window.addEventListener('mouseup', () => { isDraggingCam = false; });
-
-            container.addEventListener('wheel', (e) => {
-                cameraTargetRadius = Math.max(12, Math.min(32, cameraTargetRadius + e.deltaY * 0.015));
-                updateCameraPosition();
-            }, { passive: true });
-
-            let touchStartDist = 0;
-            container.addEventListener('touchstart', (e) => {
-                if (e.touches.length === 1) {
-                    isDraggingCam = true;
-                    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                } else if (e.touches.length === 2) {
-                    touchStartDist = Math.hypot(
-                        e.touches[0].clientX - e.touches[1].clientX,
-                        e.touches[0].clientY - e.touches[1].clientY
-                    );
-                }
-            }, { passive: true });
-
-            container.addEventListener('touchmove', (e) => {
-                if (isDraggingCam && e.touches.length === 1) {
-                    const deltaX = e.touches[0].clientX - previousMousePosition.x;
-                    const deltaY = e.touches[0].clientY - previousMousePosition.y;
-
-                    cameraAngleX -= deltaX * 0.006;
-                    cameraAngleY = Math.max(0.2, Math.min(Math.PI / 2 - 0.05, cameraAngleY - deltaY * 0.006));
-
-                    targetCameraAngleX = cameraAngleX;
-                    targetCameraAngleY = cameraAngleY;
-
-                    updateCameraPosition();
-                    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                } else if (e.touches.length === 2) {
-                    const dist = Math.hypot(
-                        e.touches[0].clientX - e.touches[1].clientX,
-                        e.touches[0].clientY - e.touches[1].clientY
-                    );
-                    const delta = touchStartDist - dist;
-                    cameraTargetRadius = Math.max(12, Math.min(32, cameraTargetRadius + delta * 0.02));
-                    touchStartDist = dist;
-                    updateCameraPosition();
-                }
-            }, { passive: true });
-
-            container.addEventListener('touchend', () => { isDraggingCam = false; });
-        }
-
-        function setupRaycasting(container) {
-            container.addEventListener('click', (e) => {
-                if (gameState.isAnimating || !gameState.hasRolled) return;
-
-                const currPlayer = gameState.players[gameState.currentTurnIndex];
-                
-                if (isOnlineMode) {
-                    if (onlineMySlotIndex !== gameState.currentTurnIndex) return;
-                } else if (currPlayer.type.startsWith('bot')) {
-                    return;
-                }
-
-                const rect = renderer.domElement.getBoundingClientRect();
-                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-                raycaster.setFromCamera(mouse, camera);
-
-                const validMovablePawns = getValidPawnsForPlayer(currPlayer, gameState.diceValue);
-                if (validMovablePawns.length === 0) return;
-
-                const clickableMeshes = [];
-                validMovablePawns.forEach(pawnIndex => {
-                    const mesh = currPlayer.pawns[pawnIndex].mesh;
-                    mesh.traverse(child => {
-                        if (child.isMesh) {
-                            child.userData = { pawnIndex: pawnIndex };
-                            clickableMeshes.push(child);
-                        }
-                    });
-                });
-
-                const intersects = raycaster.intersectObjects(clickableMeshes);
-                if (intersects.length > 0) {
-                    const hitPawnIndex = intersects[0].object.userData.pawnIndex;
-                    executePawnMove(currPlayer, hitPawnIndex, gameState.diceValue);
-                }
-            });
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        function initGame(playerConfigs) {
-            if (roomUnsubscribe) {
-                roomUnsubscribe();
-                roomUnsubscribe = null;
-            }
-
-            while (pawnsGroup.children.length > 0) {
-                pawnsGroup.remove(pawnsGroup.children[0]);
-            }
-
-            gameState.players = playerConfigs.map((cfg, idx) => {
-                const isActive = cfg.type !== 'none';
-                const pawns = [];
-
-                if (isActive) {
-                    for (let p = 0; p < 4; p++) {
-                        const pawnMesh = createPawnMesh(PLAYER_COLORS[idx].hex);
-                        const slot = BASE_SLOT_GRID[idx][p];
-                        const baseWorldPos = gridToWorld(slot[0], slot[1], 0.16);
-                        pawnMesh.position.copy(baseWorldPos);
-                        pawnsGroup.add(pawnMesh);
-
-                        pawns.push({
-                            id: p,
-                            step: -1,
-                            mesh: pawnMesh,
-                            basePos: baseWorldPos
-                        });
-                    }
-                }
-
-                return {
-                    id: idx,
-                    name: cfg.name,
-                    type: cfg.type,
-                    active: isActive,
-                    pawns: pawns
-                };
-            });
-
-            gameState.currentTurnIndex = 0;
-            gameState.diceValue = 1;
-            gameState.hasRolled = false;
-            gameState.isAnimating = false;
-            gameState.winner = null;
-
-            while (!gameState.players[gameState.currentTurnIndex].active) {
-                gameState.currentTurnIndex = (gameState.currentTurnIndex + 1) % 4;
-            }
-
-            updateUI();
-            checkAutoBotTurn();
-        }
-
-        function getPawnWorldPosition(playerIdx, step) {
-            if (step === -1) {
-                return null;
-            } else if (step < 51) {
-                const trackIdx = (step + START_TRACK_INDEX[playerIdx]) % 52;
-                const coord = MAIN_TRACK_GRID[trackIdx];
-                return gridToWorld(coord[0], coord[1], 0.22);
-            } else if (step >= 51 && step <= 56) {
-                const homeIdx = step - 51;
-                const coord = HOME_STRETCH_GRID[playerIdx][homeIdx];
-                return gridToWorld(coord[0], coord[1], 0.28);
-            }
-            return null;
-        }
-
-        function getValidPawnsForPlayer(player, diceVal) {
-            const validIndices = [];
-            player.pawns.forEach((pawn, idx) => {
-                if (pawn.step === -1) {
-                    if (diceVal === 6) validIndices.push(idx);
-                } else if (pawn.step + diceVal <= 56) {
-                    validIndices.push(idx);
-                }
-            });
-            return validIndices;
-        }
-
-        function executePawnMove(player, pawnIndex, diceVal, isRemoteAction = false) {
-            gameState.isAnimating = true;
-            clearSelectionHighlights();
-
-            const pawn = player.pawns[pawnIndex];
-            const startStep = pawn.step;
-            const targetStep = (startStep === -1) ? 0 : startStep + diceVal;
-
-            let currentStepCounter = startStep;
-
-            function animateNextStep() {
-                if (currentStepCounter < targetStep) {
-                    currentStepCounter++;
-                    sounds.playPawnStep();
-
-                    const targetPos = getPawnWorldPosition(player.id, currentStepCounter);
-
-                    const startPos = pawn.mesh.position.clone();
-                    const startTime = performance.now();
-                    const duration = 220;
-
-                    function stepFrame(now) {
-                        const elapsed = now - startTime;
-                        const progress = Math.min(1, elapsed / duration);
-
-                        pawn.mesh.position.x = startPos.x + (targetPos.x - startPos.x) * progress;
-                        pawn.mesh.position.z = startPos.z + (targetPos.z - startPos.z) * progress;
-                        pawn.mesh.position.y = startPos.y + (targetPos.y - startPos.y) * progress + Math.sin(progress * Math.PI) * 0.7;
-
-                        if (progress < 1) {
-                            requestAnimationFrame(stepFrame);
-                        } else {
-                            pawn.step = currentStepCounter;
-                            animateNextStep();
-                        }
-                    }
-                    requestAnimationFrame(stepFrame);
-                } else {
-                    pawn.step = targetStep;
-                    handlePostMove(player, pawnIndex, diceVal, isRemoteAction);
-                }
-            }
-
-            animateNextStep();
-        }
-
-        function handlePostMove(player, pawnIndex, diceVal, isRemoteAction = false) {
-            const pawn = player.pawns[pawnIndex];
-            let captured = false;
-
-            if (pawn.step >= 0 && pawn.step < 51) {
-                const trackIdx = (pawn.step + START_TRACK_INDEX[player.id]) % 52;
-
-                if (!SAFE_TILES.includes(trackIdx)) {
-                    gameState.players.forEach(otherPlayer => {
-                        if (otherPlayer.active && otherPlayer.id !== player.id) {
-                            otherPlayer.pawns.forEach(otherPawn => {
-                                if (otherPawn.step >= 0 && otherPawn.step < 51) {
-                                    const otherTrackIdx = (otherPawn.step + START_TRACK_INDEX[otherPlayer.id]) % 52;
-                                    if (otherTrackIdx === trackIdx) {
-                                        captured = true;
-                                        sounds.playCapture();
-                                        showToast(`💥 ${player.name} capturou o peão de ${otherPlayer.name}!`);
-
-                                        otherPawn.step = -1;
-                                        otherPawn.mesh.position.copy(otherPawn.basePos);
-                                    }
-                                }
-                            });
-                        }
-                    });
-                }
-            }
-
-            const isWinner = player.pawns.every(p => p.step === 56);
-            if (isWinner) {
-                gameState.winner = player;
-                sounds.playVictory();
-                confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
-                document.getElementById('winner-text-name').innerText = `${player.name} Venceu a Partida!`;
-                document.getElementById('modal-victory').classList.remove('hidden');
-                gameState.isAnimating = false;
-
-                if (isOnlineMode && !isRemoteAction) {
-                    syncOnlineGameState({ type: 'win', winner: player.name });
-                }
-                return;
-            }
-
-            gameState.isAnimating = false;
-
-            if (diceVal === 6 || captured) {
-                showToast(`🎲 ${player.name} joga novamente!`);
-                gameState.hasRolled = false;
-                updateUI();
-                
-                if (isOnlineMode && !isRemoteAction) {
-                    syncOnlineGameState({ type: 'extraTurn' });
-                } else if (!isOnlineMode) {
-                    checkAutoBotTurn();
-                }
-            } else {
-                nextTurn(isRemoteAction);
-            }
-        }
-
-        function nextTurn(isRemoteAction = false) {
-            gameState.hasRolled = false;
-            do {
-                gameState.currentTurnIndex = (gameState.currentTurnIndex + 1) % 4;
-            } while (!gameState.players[gameState.currentTurnIndex].active);
-
-            updateUI();
-
-            if (isOnlineMode && !isRemoteAction) {
-                syncOnlineGameState({ type: 'nextTurn' });
-            } else if (!isOnlineMode) {
-                checkAutoBotTurn();
-            }
-        }
-
-        function rollDiceAction(forcedResult = null) {
-            if (gameState.isAnimating || (gameState.hasRolled && forcedResult === null)) return;
-
-            gameState.isAnimating = true;
-            sounds.playDiceRoll();
-
-            const result = (forcedResult !== null) ? forcedResult : (Math.floor(Math.random() * 6) + 1);
-            gameState.diceValue = result;
-
-            document.getElementById('dice-result-text').innerText = "...";
-
-            const rollDuration = 800;
-            const startTime = performance.now();
-
-            const rotXMap = { 1: 0, 2: 0, 3: -Math.PI/2, 4: Math.PI/2, 5: 0, 6: Math.PI };
-            const rotZMap = { 1: 0, 2: -Math.PI/2, 3: 0, 4: 0, 5: Math.PI/2, 6: 0 };
-
-            const targetRotX = rotXMap[result];
-            const targetRotZ = rotZMap[result];
-
-            function animateRoll(now) {
-                const elapsed = now - startTime;
-                const progress = Math.min(1, elapsed / rollDuration);
-
-                diceMesh.rotation.x = Math.sin(progress * Math.PI * 4) * 6 + targetRotX;
-                diceMesh.rotation.y = Math.cos(progress * Math.PI * 4) * 6;
-                diceMesh.rotation.z = Math.sin(progress * Math.PI * 2) * 4 + targetRotZ;
-
-                diceMesh.position.y = 0.8 + Math.sin(progress * Math.PI) * 2.8;
-
-                if (progress < 1) {
-                    requestAnimationFrame(animateRoll);
-                } else {
-                    diceMesh.rotation.set(targetRotX, 0, targetRotZ);
-                    diceMesh.position.set(0, 0.7, 0);
-
-                    document.getElementById('dice-result-text').innerText = result;
-                    gameState.hasRolled = true;
-                    gameState.isAnimating = false;
-
-                    const currPlayer = gameState.players[gameState.currentTurnIndex];
-                    const validPawns = getValidPawnsForPlayer(currPlayer, result);
-
-                    if (validPawns.length === 0) {
-                        showToast(`Sem movimentos possíveis para ${currPlayer.name}! Passando a vez...`);
-                        setTimeout(() => { nextTurn(); }, 1200);
-                    } else {
-                        highlightValidPawns(currPlayer, validPawns);
-                        
-                        if (!isOnlineMode && currPlayer.type.startsWith('bot')) {
-                            setTimeout(() => { executeBotMove(currPlayer, validPawns, result); }, 700);
-                        }
-                    }
-
-                    if (isOnlineMode && forcedResult === null) {
-                        syncOnlineGameState({ type: 'roll', value: result });
-                    }
-
-                    updateUI();
-                }
-            }
-
-            requestAnimationFrame(animateRoll);
-        }
-
-        function highlightValidPawns(player, validIndices) {
-            clearSelectionHighlights();
-            validIndices.forEach(idx => {
-                const ring = player.pawns[idx].mesh.getObjectByName("selectionRing");
-                if (ring) ring.material.opacity = 0.85;
-            });
-        }
-
-        function clearSelectionHighlights() {
-            gameState.players.forEach(p => {
-                if (p.pawns) {
-                    p.pawns.forEach(pawn => {
-                        const ring = pawn.mesh.getObjectByName("selectionRing");
-                        if (ring) ring.material.opacity = 0;
-                    });
-                }
-            });
-        }
-
-        function checkAutoBotTurn() {
-            if (isOnlineMode) return;
-            const currPlayer = gameState.players[gameState.currentTurnIndex];
-            if (currPlayer.type.startsWith('bot') && !gameState.hasRolled && !gameState.isAnimating) {
-                setTimeout(() => { rollDiceAction(); }, 900);
-            }
-        }
-
-        function executeBotMove(botPlayer, validIndices, diceVal) {
-            let chosenIndex = validIndices[0];
-
-            if (botPlayer.type === 'bot-hard') {
-                let bestScore = -999;
-                validIndices.forEach(idx => {
-                    const pawn = botPlayer.pawns[idx];
-                    let score = 0;
-
-                    if (pawn.step === -1) score += 50;
-                    else score += pawn.step;
-
-                    if (score > bestScore) {
-                        bestScore = score;
-                        chosenIndex = idx;
-                    }
-                });
-            } else if (botPlayer.type === 'bot-medium') {
-                chosenIndex = validIndices[Math.floor(Math.random() * validIndices.length)];
-            }
-
-            executePawnMove(botPlayer, chosenIndex, diceVal);
-        }
-
-        function updateUI() {
-            const currPlayer = gameState.players[gameState.currentTurnIndex];
-            const pColor = PLAYER_COLORS[currPlayer.id];
-
-            if (autoCameraFocus && !isDraggingCam) {
-                targetCameraAngleX = pColor.camAngle;
-                targetCameraAngleY = Math.PI / 3.8;
-            }
-
-            const bannerText = document.getElementById('turn-banner-text');
-            const indicator = document.getElementById('turn-color-indicator');
-
-            if (currPlayer.id === 1) {
-                bannerText.innerText = `🟢 Vez do Jogador VERDE! Foco na Mesa!`;
-            } else {
-                bannerText.innerText = `Vez de ${currPlayer.name}!`;
-            }
-            indicator.className = `w-3.5 h-3.5 rounded-full ${pColor.bgClass} animate-ping`;
-
-            gameState.players.forEach((p, idx) => {
-                const card = document.getElementById(`player-card-${idx}`);
-                if (!p.active) {
-                    card.classList.add('hidden');
-                    return;
-                }
-                card.classList.remove('hidden');
-
-                if (idx === gameState.currentTurnIndex) {
-                    card.classList.remove('opacity-60');
-                    card.classList.add('opacity-100', 'ring-2', 'ring-amber-400', 'scale-105');
-                } else {
-                    card.classList.add('opacity-60');
-                    card.classList.remove('opacity-100', 'ring-2', 'ring-amber-400', 'scale-105');
-                }
-
-                const homeCount = p.pawns.filter(pawn => pawn.step === 56).length;
-                card.querySelector('.pawns-home-count').innerText = `${homeCount}/4`;
-                card.querySelector('.player-name').innerText = p.name;
-                
-                let typeText = p.type === 'human' ? '<i class="fa-solid fa-user"></i> Humano' : '<i class="fa-solid fa-robot"></i> Robô';
-                if (isOnlineMode) {
-                    if (idx === onlineMySlotIndex) typeText = '<i class="fa-solid fa-star text-amber-400"></i> Você';
-                    else typeText = '<i class="fa-solid fa-globe text-cyan-400"></i> Online';
-                }
-                card.querySelector('.player-type').innerHTML = typeText;
-            });
-
-            const rollBtn = document.getElementById('btn-roll-action');
-            let canRoll = true;
-
-            if (isOnlineMode) {
-                if (onlineMySlotIndex !== gameState.currentTurnIndex || gameState.hasRolled || gameState.isAnimating) {
-                    canRoll = false;
-                }
-            } else {
-                if (currPlayer.type.startsWith('bot') || gameState.hasRolled || gameState.isAnimating) {
-                    canRoll = false;
-                }
-            }
-
-            if (!canRoll) {
-                rollBtn.disabled = true;
-                rollBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            } else {
-                rollBtn.disabled = false;
-                rollBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            }
-        }
-
-        async function ensureFirebaseAuth() {
-            if (firebaseUser) return firebaseUser;
-            try {
-                const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore } = window.FB;
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-
-                if (!firebaseConfig) {
-                    showToast("❌ Erro de configuração do servidor.");
-                    return null;
-                }
-
-                const app = initializeApp(firebaseConfig);
-                firebaseAuth = getAuth(app);
-                firebaseDb = getFirestore(app);
-
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    const cred = await signInWithCustomToken(firebaseAuth, __initial_auth_token);
-                    firebaseUser = cred.user;
-                } else {
-                    const cred = await signInAnonymously(firebaseAuth);
-                    firebaseUser = cred.user;
-                }
-                return firebaseUser;
-            } catch (e) {
-                console.error("Firebase auth failure", e);
-                showToast("❌ Falha na conexão com o servidor.");
-                return null;
-            }
-        }
-
-        async function createOnlineRoom(hostName, hostColorIdx) {
-            const user = await ensureFirebaseAuth();
-            if (!user) return;
-
-            const { doc, setDoc } = window.FB;
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            const roomCode = 'LUDO-' + Math.floor(1000 + Math.random() * 9000);
+            <div class="space-y-3 text-left mb-8" id="lobby-players">
+                <!-- Players injected here -->
+            </div>
+
+            <div class="space-y-4" id="lobby-actions">
+                <!-- Host actions injected here -->
+            </div>
+        </div>
+        <button class="text-gray-300 hover:text-white underline font-bold" onclick="leaveRoom()">Leave Room</button>
+    </div>
+
+    <!-- Game UI -->
+    <div id="game-ui" class="pointer-events-none">
+        <!-- Top Bar -->
+        <div class="flex justify-between items-start w-full">
+            <div id="game-room-info" class="glass-panel px-5 py-2 text-sm font-bold hidden pointer-events-auto">
+                ROOM: <span id="game-room-code" class="text-pink-400 tracking-widest font-mono text-lg ml-2"></span>
+            </div>
             
-            onlineRoomId = roomCode;
-            onlineMySlotIndex = parseInt(hostColorIdx);
-            isOnlineMode = true;
+            <div id="turn-display" class="turn-indicator turn-red pointer-events-auto shadow-2xl backdrop-blur-md">
+                Red's Turn
+            </div>
+            
+            <button class="btn bg-gray-800 text-sm px-4 py-2 pointer-events-auto shadow-lg" onclick="leaveGame()"><i class="fas fa-sign-out-alt"></i> Quit</button>
+        </div>
 
-            const slots = [
-                { name: 'Vazio', type: 'none', userId: null },
-                { name: 'Vazio', type: 'none', userId: null },
-                { name: 'Vazio', type: 'none', userId: null },
-                { name: 'Vazio', type: 'none', userId: null }
-            ];
+        <!-- Dice Button -->
+        <div class="dice-btn-container pointer-events-auto">
+            <button id="btn-roll" class="dice-btn" onclick="onRollClicked()" disabled>
+                <i class="fas fa-dice"></i>
+            </button>
+        </div>
+    </div>
+</div>
 
-            slots[onlineMySlotIndex] = {
-                name: hostName || 'Host Online',
-                type: 'human',
-                userId: user.uid
-            };
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-            const roomData = {
-                roomId: roomCode,
-                hostUid: user.uid,
-                status: 'waiting',
-                slots: slots,
-                currentTurnIndex: onlineMySlotIndex,
-                diceValue: 1,
-                hasRolled: false,
-                pawnSteps: {
-                    p0: [-1, -1, -1, -1],
-                    p1: [-1, -1, -1, -1],
-                    p2: [-1, -1, -1, -1],
-                    p3: [-1, -1, -1, -1]
-                },
-                lastAction: { type: 'init', timestamp: Date.now() }
-            };
+const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+const firebaseConfig = JSON.parse(firebaseConfigStr);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'ludo-3d-local';
 
-            const roomRef = doc(firebaseDb, 'artifacts', appId, 'public', 'data', 'ludo_rooms', roomCode);
-            await setDoc(roomRef, roomData);
+let auth, db, userId;
+let isOnlineEnabled = false;
 
-            subscribeToRoom(roomCode);
-            setupOnlineHeader(roomCode);
-            showToast(`🎉 Sala ${roomCode} criada com sucesso!`);
-        }
+// Game State Variables
+window.currentScreen = 'screen-menu';
+window.currentMode = 'local'; // local, vs_robot, online
+window.currentRoom = null;
+window.isHost = false;
+window.lastLocalUpdate = 0;
+window.roomUnsubscribe = null;
+window.isRolling = false;
 
-        async function joinOnlineRoom(roomCodeInput, playerName) {
-            const user = await ensureFirebaseAuth();
-            if (!user) return;
+window.localGameData = {
+    state: 'lobby',
+    turn: 'red',
+    dice: 6,
+    diceState: 'idle', // idle, rolling, rolled
+    sixCount: 0,
+    winner: null,
+    players: {},
+    tokens: [],
+    lastUpdate: 0
+};
 
-            const { doc, getDoc, updateDoc } = window.FB;
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            const code = roomCodeInput.toUpperCase().trim();
-
-            const roomRef = doc(firebaseDb, 'artifacts', appId, 'public', 'data', 'ludo_rooms', code);
-            const snap = await getDoc(roomRef);
-
-            if (!snap.exists()) {
-                showToast("❌ Sala não encontrada! Verifique o código.");
-                return;
+// Initialize App
+async function init() {
+    try {
+        if (Object.keys(firebaseConfig).length > 0) {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
             }
-
-            const roomData = snap.data();
-            const slots = roomData.slots;
-
-            let openSlotIdx = slots.findIndex(s => s.type === 'none' || s.userId === user.uid);
-            if (openSlotIdx === -1) {
-                showToast("⚠️ Sala cheia!");
-                return;
-            }
-
-            slots[openSlotIdx] = {
-                name: playerName || 'Jogador Online',
-                type: 'human',
-                userId: user.uid
-            };
-
-            onlineRoomId = code;
-            onlineMySlotIndex = openSlotIdx;
-            isOnlineMode = true;
-
-            await updateDoc(roomRef, { slots: slots });
-            subscribeToRoom(code);
-            setupOnlineHeader(code);
-            showToast(`✅ Você entrou na Sala ${code}!`);
+            userId = auth.currentUser.uid;
+            isOnlineEnabled = true;
+            console.log("Firebase connected successfully.");
+        } else {
+            userId = 'local_user_' + Math.floor(Math.random()*1000);
+            console.log("Running in offline mode (No Firebase Config).");
         }
+    } catch(e) {
+        console.error("Firebase init failed, continuing offline.", e);
+        userId = 'local_user_' + Math.floor(Math.random()*1000);
+    }
+    
+    initThreeJS();
+}
 
-        function subscribeToRoom(roomCode) {
-            const { doc, onSnapshot } = window.FB;
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            const roomRef = doc(firebaseDb, 'artifacts', appId, 'public', 'data', 'ludo_rooms', roomCode);
+// UI Navigation Helper
+window.showScreen = function(id) {
+    document.querySelectorAll('.screen, #game-ui').forEach(el => el.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    window.currentScreen = id;
+}
 
-            if (roomUnsubscribe) roomUnsubscribe();
+window.showToast = function(msg) {
+    let toast = document.createElement('div');
+    toast.className = 'fixed top-24 left-1/2 transform -translate-x-1/2 bg-gray-900 bg-opacity-90 text-white px-8 py-4 rounded-full shadow-2xl z-50 transition-all duration-300 font-bold tracking-wide border border-gray-700 pointer-events-none';
+    toast.innerText = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translate(-50%, -20px)';
+        setTimeout(() => toast.remove(), 300);
+    }, 2500);
+}
 
-            roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
-                if (!snapshot.exists()) return;
-                const data = snapshot.data();
-                handleOnlineSnapshot(data);
-            }, (error) => {
-                console.error("Snapshot error:", error);
-            });
-        }
+window.createRoom = async function() {
+    if (!isOnlineEnabled) return showToast("Online mode not available.");
+    
+    const roomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
+    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ludorooms', roomCode);
+    
+    const initState = {
+        host: userId,
+        state: 'lobby',
+        turn: 'red',
+        dice: 6,
+        diceState: 'idle',
+        sixCount: 0,
+        winner: null,
+        players: {
+            red: { uid: userId, type: 'human', name: 'Host' },
+            green: null,
+            yellow: null,
+            blue: null
+        },
+        tokens: initialTokensState(),
+        lastUpdate: Date.now()
+    };
+    
+    await setDoc(docRef, initState);
+    window.currentRoom = roomCode;
+    window.isHost = true;
+    window.currentMode = 'online';
+    listenToRoom();
+    showScreen('screen-lobby');
+}
 
-        function handleOnlineSnapshot(data) {
-            if (!isOnlineMode) return;
+window.joinRoom = async function(code) {
+    if (!isOnlineEnabled) return showToast("Online mode not available.");
+    if (!code || code.length !== 5) return showToast("Invalid code.");
+    
+    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ludorooms', code);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) return showToast("Room not found!");
+    
+    let data = snap.data();
+    if (data.state !== 'lobby') return showToast("Game already in progress!");
+    
+    let slot = null;
+    ['green', 'yellow', 'blue', 'red'].forEach(c => {
+        if (!slot && !data.players[c]) slot = c;
+    });
+    
+    if (!slot) return showToast("Room is full!");
+    
+    await updateDoc(docRef, {
+        [`players.${slot}`]: { uid: userId, type: 'human', name: 'Player' }
+    });
+    
+    window.currentRoom = code;
+    window.isHost = false;
+    window.currentMode = 'online';
+    listenToRoom();
+    showScreen('screen-lobby');
+}
 
-            const playerConfigs = data.slots.map(s => ({
-                name: s.name,
-                type: s.type
-            }));
-
-            if (gameState.players.length === 0) {
-                initGame(playerConfigs);
-            }
-
-            if (data.lastAction && data.lastAction.timestamp > lastActionTimestamp) {
-                lastActionTimestamp = data.lastAction.timestamp;
-
-                if (data.lastAction.type === 'roll' && data.lastAction.player !== onlineMySlotIndex) {
-                    rollDiceAction(data.diceValue);
-                }
-            }
-
-            gameState.currentTurnIndex = data.currentTurnIndex;
-            gameState.diceValue = data.diceValue;
-
-            if (data.pawnSteps) {
-                [0, 1, 2, 3].forEach(pIdx => {
-                    const playerSteps = Array.isArray(data.pawnSteps) ? data.pawnSteps[pIdx] : data.pawnSteps[`p${pIdx}`];
-                    if (playerSteps && gameState.players[pIdx] && gameState.players[pIdx].active) {
-                        playerSteps.forEach((stepVal, pawnIdx) => {
-                            const pawn = gameState.players[pIdx].pawns[pawnIdx];
-                            if (pawn && pawn.step !== stepVal) {
-                                pawn.step = stepVal;
-                                const pos = getPawnWorldPosition(pIdx, stepVal);
-                                if (pos) pawn.mesh.position.copy(pos);
-                                else pawn.mesh.position.copy(pawn.basePos);
-                            }
-                        });
-                    }
-                });
-            }
-
-            updateUI();
-        }
-
-        async function syncOnlineGameState(action) {
-            if (!isOnlineMode || !onlineRoomId) return;
-
-            const { doc, updateDoc } = window.FB;
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            const roomRef = doc(firebaseDb, 'artifacts', appId, 'public', 'data', 'ludo_rooms', onlineRoomId);
-
-            const pawnSteps = {};
-            gameState.players.forEach(p => {
-                if (!p.active) {
-                    pawnSteps[`p${p.id}`] = [-1, -1, -1, -1];
-                } else {
-                    pawnSteps[`p${p.id}`] = p.pawns.map(pawn => pawn.step);
-                }
-            });
-
-            await updateDoc(roomRef, {
-                currentTurnIndex: gameState.currentTurnIndex,
-                diceValue: gameState.diceValue,
-                pawnSteps: pawnSteps,
-                lastAction: {
-                    type: action.type,
-                    player: onlineMySlotIndex,
-                    timestamp: Date.now()
-                }
-            });
-        }
-
-        function setupOnlineHeader(code) {
-            const badge = document.getElementById('game-mode-badge');
-            const roomDisplay = document.getElementById('room-code-display');
-            const roomText = document.getElementById('room-code-text');
-
-            badge.innerHTML = `<i class="fa-solid fa-globe mr-1.5 text-cyan-400"></i> Online`;
-            roomText.innerText = code;
-            roomDisplay.classList.remove('hidden');
-        }
-
-        function showToast(message) {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = 'glass-panel px-4 py-2 rounded-2xl text-xs sm:text-sm font-extrabold text-amber-300 border-amber-400/40 shadow-2xl transition-all duration-300 transform -translate-y-2 opacity-0';
-            toast.innerText = message;
-            container.appendChild(toast);
-
-            setTimeout(() => {
-                toast.classList.remove('-translate-y-2', 'opacity-0');
-            }, 10);
-
-            setTimeout(() => {
-                toast.classList.add('opacity-0');
-                setTimeout(() => toast.remove(), 300);
-            }, 2500);
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-
-            if (!isDraggingCam) {
-                cameraAngleX += (targetCameraAngleX - cameraAngleX) * 0.05;
-                cameraAngleY += (targetCameraAngleY - cameraAngleY) * 0.05;
-                updateCameraPosition();
-            }
-
-            if (ambientParticles) {
-                ambientParticles.rotation.y += 0.0008;
-            }
-
-            const time = performance.now() * 0.004;
-            pawnsGroup.children.forEach(pawnMesh => {
-                const ring = pawnMesh.getObjectByName("selectionRing");
-                if (ring && ring.material.opacity > 0) {
-                    ring.rotation.z += 0.04;
-                }
-            });
-
-            if (diceBadgeGroup) {
-                diceBadgeGroup.position.y = (diceMesh.position.y + 1.2) + Math.sin(time * 3) * 0.06;
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            initThreeJS();
-
-            const tabFamily = document.getElementById('mode-tab-family');
-            const tabBot = document.getElementById('mode-tab-bot');
-            const tabOnline = document.getElementById('mode-tab-online');
-
-            const panelLocal = document.getElementById('panel-local-config');
-            const panelOnline = document.getElementById('panel-online-config');
-
-            tabFamily.addEventListener('click', () => {
-                isOnlineMode = false;
-                tabFamily.className = "py-2 rounded-xl font-extrabold text-[11px] sm:text-xs transition-all bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg";
-                tabBot.className = "py-2 rounded-xl font-extrabold text-[11px] sm:text-xs transition-all text-gray-400 hover:text-white";
-                tabOnline.className = "py-2 rounded-xl font-extrabold text-[11px] sm:text-xs transition-all text-gray-400 hover:text-white";
-                
-                panelLocal.classList.remove('hidden');
-                panelOnline.classList.add('hidden');
-
-                document.getElementById('p1-type').value = 'human';
-                document.getElementById('p2-type').value = 'human';
-                document.getElementById('p3-type').value = 'human';
-                document.getElementById('game-mode-badge').innerHTML = `<i class="fa-solid fa-users mr-1.5 text-indigo-400"></i> Em Família`;
-                document.getElementById('room-code-display').classList.add('hidden');
-            });
-
-            tabBot.addEventListener('click', () => {
-                isOnlineMode = false;
-                tabBot.className = "py-2 rounded-xl font-extrabold text-[11px] sm:text-xs transition-all bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg";
-                tabFamily.className = "py-2 rounded-xl font-extrabold text-[11px] sm:text-xs transition-all text-gray-400 hover:text-white";
-                tabOnline.className = "py-2 rounded-xl font-extrabold text-[11px] sm:text-xs transition-all text-gray-400 hover:text-white";
-                
-                panelLocal.classList.remove('hidden');
-                panelOnline.classList.add('hidden');
-
-                document.getElementById('p1-type').value = 'bot-medium';
-                document.getElementById('p2-type').value = 'bot-medium';
-                document.getElementById('p3-type').value = 'bot-medium';
-                document.getElementById('game-mode-badge').innerHTML = `<i class="fa-solid fa-robot mr-1.5 text-indigo-400"></i> Robô`;
-                document.getElementById('room-code-display').classList.add('hidden');
-            });
-
-            tabOnline.addEventListener('click', () => {
-                tabOnline.className = "py-2 rounded-xl font-extrabold text-[11px] sm:text-xs transition-all bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg";
-                tabFamily.className = "py-2 rounded-xl font-extrabold text-[11px] sm:text-xs transition-all text-gray-400 hover:text-white";
-                tabBot.className = "py-2 rounded-xl font-extrabold text-[11px] sm:text-xs transition-all text-gray-400 hover:text-white";
-
-                panelLocal.classList.add('hidden');
-                panelOnline.classList.remove('hidden');
-            });
-
-            const btnSubCreate = document.getElementById('btn-subtab-create');
-            const btnSubJoin = document.getElementById('btn-subtab-join');
-            const viewCreate = document.getElementById('view-online-create');
-            const viewJoin = document.getElementById('view-online-join');
-
-            btnSubCreate.addEventListener('click', () => {
-                btnSubCreate.className = "py-2 rounded-xl text-xs font-extrabold bg-indigo-600 text-white shadow-md";
-                btnSubJoin.className = "py-2 rounded-xl text-xs font-extrabold bg-slate-800 text-gray-300 hover:text-white";
-                viewCreate.classList.remove('hidden');
-                viewJoin.classList.add('hidden');
-            });
-
-            btnSubJoin.addEventListener('click', () => {
-                btnSubJoin.className = "py-2 rounded-xl text-xs font-extrabold bg-indigo-600 text-white shadow-md";
-                btnSubCreate.className = "py-2 rounded-xl text-xs font-extrabold bg-slate-800 text-gray-300 hover:text-white";
-                viewJoin.classList.remove('hidden');
-                viewCreate.classList.add('hidden');
-            });
-
-            document.getElementById('btn-action-create-room').addEventListener('click', async () => {
-                const name = document.getElementById('online-player-name').value;
-                const colorIdx = document.getElementById('online-host-color').value;
-                await createOnlineRoom(name, colorIdx);
-                document.getElementById('modal-setup').classList.add('hidden');
-            });
-
-            document.getElementById('btn-action-join-room').addEventListener('click', async () => {
-                const name = document.getElementById('online-player-name').value;
-                const code = document.getElementById('input-room-code').value;
-                if (!code) {
-                    showToast("⚠️ Digite o código da sala!");
-                    return;
-                }
-                await joinOnlineRoom(code, name);
-                document.getElementById('modal-setup').classList.add('hidden');
-            });
-
-            document.getElementById('btn-start-game').addEventListener('click', () => {
-                if (isOnlineMode) return;
-                const config = [
-                    { name: document.getElementById('p0-name').value || 'Vermelho', type: document.getElementById('p0-type').value },
-                    { name: document.getElementById('p1-name').value || 'Verde', type: document.getElementById('p1-type').value },
-                    { name: document.getElementById('p2-name').value || 'Amarelo', type: document.getElementById('p2-type').value },
-                    { name: document.getElementById('p3-name').value || 'Azul', type: document.getElementById('p3-type').value }
-                ];
-
-                document.getElementById('modal-setup').classList.add('hidden');
-                initGame(config);
-            });
-
-            document.getElementById('btn-roll-action').addEventListener('click', () => rollDiceAction());
-
-            document.getElementById('btn-copy-code').addEventListener('click', () => {
-                const code = document.getElementById('room-code-text').innerText;
-                const temp = document.createElement('input');
-                temp.value = code;
-                document.body.appendChild(temp);
-                temp.select();
-                document.execCommand('copy');
-                document.body.removeChild(temp);
-                showToast("📋 Código copiado! Envie para seus amigos!");
-            });
-
-            document.getElementById('btn-new-game').addEventListener('click', () => {
-                document.getElementById('modal-setup').classList.remove('hidden');
-            });
-
-            document.getElementById('btn-rules').addEventListener('click', () => {
-                document.getElementById('modal-rules').classList.remove('hidden');
-            });
-
-            document.getElementById('btn-close-rules').addEventListener('click', () => {
-                document.getElementById('modal-rules').classList.add('hidden');
-            });
-
-            document.getElementById('btn-understand-rules').addEventListener('click', () => {
-                document.getElementById('modal-rules').classList.add('hidden');
-            });
-
-            document.getElementById('btn-sound').addEventListener('click', (e) => {
-                sounds.muted = !sounds.muted;
-                const icon = e.currentTarget.querySelector('i');
-                icon.className = sounds.muted ? "fa-solid fa-volume-xmark text-red-400" : "fa-solid fa-volume-high";
-            });
-
-            document.getElementById('btn-auto-cam').addEventListener('click', (e) => {
-                autoCameraFocus = !autoCameraFocus;
-                e.currentTarget.classList.toggle('text-amber-300');
-                e.currentTarget.classList.toggle('text-gray-400');
-                showToast(autoCameraFocus ? "📷 Câmera automática ativada!" : "📷 Câmera manual ativada!");
-            });
-
-            document.getElementById('btn-reset-cam').addEventListener('click', () => {
-                const currPlayer = gameState.players[gameState.currentTurnIndex];
-                targetCameraAngleX = PLAYER_COLORS[currPlayer.id].camAngle;
-                targetCameraAngleY = Math.PI / 3.8;
-                cameraTargetRadius = 22;
-            });
-
-            document.getElementById('btn-victory-restart').addEventListener('click', () => {
-                document.getElementById('modal-victory').classList.add('hidden');
-                document.getElementById('modal-setup').classList.remove('hidden');
-            });
+window.addBotToRoom = async function() {
+    let docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ludorooms', currentRoom);
+    let snap = await getDoc(docRef);
+    let data = snap.data();
+    let slot = null;
+    ['green', 'yellow', 'blue', 'red'].forEach(c => {
+        if (!slot && !data.players[c]) slot = c;
+    });
+    if (slot) {
+        await updateDoc(docRef, {
+            [`players.${slot}`]: { uid: 'bot_' + Math.floor(Math.random()*1000), type: 'bot', name: 'Robot' }
         });
-    </script>
+    }
+}
+
+window.startGameOnline = async function() {
+    let docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ludorooms', currentRoom);
+    await updateDoc(docRef, { state: 'playing', lastUpdate: Date.now() });
+}
+
+window.leaveRoom = function() {
+    if (roomUnsubscribe) { roomUnsubscribe(); roomUnsubscribe = null; }
+    window.currentRoom = null;
+    showScreen('screen-online-menu');
+}
+
+window.leaveGame = function() {
+    if (roomUnsubscribe) { roomUnsubscribe(); roomUnsubscribe = null; }
+    window.currentRoom = null;
+    clearBoard();
+    showScreen('screen-menu');
+}
+
+function listenToRoom() {
+    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ludorooms', currentRoom);
+    roomUnsubscribe = onSnapshot(docRef, (docSnap) => {
+        if (!docSnap.exists()) {
+            showToast("Room closed.");
+            leaveRoom();
+            return;
+        }
+        const data = docSnap.data();
+        
+        if (data.state === 'lobby') {
+            updateLobbyUI(data);
+        } else if (data.state === 'playing') {
+            if (window.currentScreen !== 'game-ui') {
+                showScreen('game-ui');
+                window.localGameData.tokens = data.tokens;
+                renderTokensInstantly(); // Place tokens without animation initially
+            }
+            syncGameState(data);
+        }
+    }, (err) => console.error(err));
+}
+
+function updateLobbyUI(data) {
+    document.getElementById('lobby-code').innerText = currentRoom;
+    let html = '';
+    let emptySlots = 0;
+    ['red', 'green', 'yellow', 'blue'].forEach(c => {
+        let p = data.players[c];
+        if (p) {
+            let icon = p.type === 'bot' ? 'fa-robot' : 'fa-user';
+            html += `<div class="flex items-center space-x-4 p-3 bg-white bg-opacity-10 rounded-xl border-l-4 border-${c}-500 shadow-md">
+                <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center border-2 border-gray-600">
+                    <i class="fas ${icon} color-${c}"></i>
+                </div>
+                <span class="font-bold uppercase color-${c} tracking-wide">${p.name}</span>
+            </div>`;
+        } else {
+            emptySlots++;
+            html += `<div class="flex items-center space-x-4 p-3 bg-black bg-opacity-20 rounded-xl border-l-4 border-gray-700 border-dashed text-gray-500">
+                <div class="w-10 h-10 rounded-full bg-transparent flex items-center justify-center border-2 border-dashed border-gray-600">
+                    <i class="fas fa-user-plus"></i>
+                </div>
+                <span class="italic tracking-wide">Waiting for player...</span>
+            </div>`;
+        }
+    });
+    
+    // Quick fix for Tailwind dynamic classes not generating, map exact colors
+    html = html.replace(/border-red-500/g, 'border-[#ff4757]')
+               .replace(/border-green-500/g, 'border-[#2ed573]')
+               .replace(/border-yellow-500/g, 'border-[#ffa502]')
+               .replace(/border-blue-500/g, 'border-[#1e90ff]');
+               
+    document.getElementById('lobby-players').innerHTML = html;
+    
+    let actionsHtml = '';
+    if (isHost) {
+        if (emptySlots > 0) {
+            actionsHtml += `<button class="btn btn-green w-full mb-3 py-3" onclick="addBotToRoom()"><i class="fas fa-robot mr-2"></i> Add Bot</button>`;
+        }
+        actionsHtml += `<button class="btn w-full py-4 text-lg" onclick="startGameOnline()"><i class="fas fa-play mr-2"></i> Start Game</button>`;
+    } else {
+        actionsHtml = `<div class="text-center text-gray-400 italic mt-6 bg-black bg-opacity-30 p-4 rounded-xl border border-gray-700">Waiting for host to start game...</div>`;
+    }
+    document.getElementById('lobby-actions').innerHTML = actionsHtml;
+}
+
+async function updateGameState(updates) {
+    updates.lastUpdate = Date.now();
+    
+    if (currentMode === 'online') {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ludorooms', currentRoom);
+        await updateDoc(docRef, updates);
+    } else {
+        // Offline modes
+        for (const key in updates) {
+            window.localGameData[key] = updates[key];
+        }
+        // Simulate snapshot trigger
+        syncGameState(JSON.parse(JSON.stringify(window.localGameData)));
+    }
+}
+
+const startOffsets = { red: 0, green: 13, yellow: 26, blue: 39 };
+const safeSquares = [0, 8, 13, 21, 26, 34, 39, 47];
+
+function initialTokensState() {
+    let t = [];
+    ['red', 'green', 'yellow', 'blue'].forEach(c => {
+        for(let i=0; i<4; i++) {
+            t.push({ id: `${c}-${i}`, color: c, progress: -1, baseIndex: i });
+        }
+    });
+    return t;
+}
+
+window.startOfflineGame = function(mode) {
+    window.currentMode = mode;
+    window.isHost = true;
+    
+    window.localGameData = {
+        state: 'playing',
+        turn: 'red',
+        dice: 6,
+        diceState: 'idle',
+        sixCount: 0,
+        winner: null,
+        players: {
+            red: { uid: 'local_1', type: 'human', name: 'Red' },
+            green: { uid: 'local_2', type: mode==='vs_robot'?'bot':'human', name: 'Green' },
+            yellow: { uid: 'local_3', type: mode==='vs_robot'?'bot':'human', name: 'Yellow' },
+            blue: { uid: 'local_4', type: mode==='vs_robot'?'bot':'human', name: 'Blue' }
+        },
+        tokens: initialTokensState(),
+        lastUpdate: Date.now()
+    };
+    
+    showScreen('game-ui');
+    renderTokensInstantly();
+    syncGameState(JSON.parse(JSON.stringify(window.localGameData)));
+}
+
+function isLocalController(color) {
+    if (currentMode === 'local') return true; 
+    let p = window.localGameData.players[color];
+    if (!p) return false;
+    
+    if (currentMode === 'vs_robot') {
+        if (p.type === 'bot' && isHost) return true;
+        if (p.type === 'human') return true; 
+    }
+    
+    if (currentMode === 'online') {
+        if (p.uid === userId) return true;
+        if (p.type === 'bot' && isHost) return true;
+    }
+    return false;
+}
+
+function getValidMoves(color, diceValue) {
+    let valid = [];
+    window.localGameData.tokens.filter(t => t.color === color).forEach(t => {
+        if (t.progress === -1) {
+            if (diceValue === 6) valid.push(t.id);
+        } else if (t.progress >= 0 && t.progress <= 50) {
+            if (t.progress + diceValue <= 56) valid.push(t.id);
+        } else if (t.progress >= 51 && t.progress <= 55) {
+            if (t.progress + diceValue <= 56) valid.push(t.id);
+        }
+    });
+    return valid;
+}
+
+function getNextTurn(current, extraTurn, sixCount) {
+    if (extraTurn && sixCount < 3) return current;
+    let order = ['red', 'green', 'yellow', 'blue'];
+    let idx = order.indexOf(current);
+    // Find next active player (if we allow less than 4 players, loop until found, here we always have 4)
+    return order[(idx + 1) % 4];
+}
+
+window.onRollClicked = function() {
+    if (!isLocalController(window.localGameData.turn) || window.localGameData.diceState !== 'idle') return;
+    let rollValue = Math.floor(Math.random() * 6) + 1;
+    updateGameState({ dice: rollValue, diceState: 'rolling' });
+}
+
+function syncGameState(data) {
+    if (data.winner && !window.localGameData.winner) {
+        showToast(`${data.winner.toUpperCase()} WINS! 🎉`);
+        triggerConfetti();
+        setTimeout(() => leaveGame(), 8000);
+    }
+
+    if (data.diceState === 'rolling' && !window.isRolling) {
+        window.isRolling = true;
+        window.localGameData = data; // Keep local sync
+        updateGameUI(data);
+        rollDiceVisual(data.dice, () => {
+            window.isRolling = false;
+            handlePostRoll(data);
+        });
+    }
+    
+    if (data.lastUpdate > window.lastLocalUpdate) {
+        window.localGameData = data;
+        window.lastLocalUpdate = data.lastUpdate;
+        animateTokensToPositions();
+        updateGameUI(data);
+        
+        // Host triggers bot turn automatically if idle
+        if (isHost && data.diceState === 'idle' && !data.winner) {
+            let p = data.players[data.turn];
+            if (p && p.type === 'bot') {
+                setTimeout(() => {
+                    if(window.localGameData.turn === data.turn && window.localGameData.diceState === 'idle') {
+                        onRollClicked();
+                    }
+                }, 1200);
+            }
+        }
+    }
+}
+
+function handlePostRoll(data) {
+    if (!isLocalController(data.turn)) return;
+    
+    let validMoves = getValidMoves(data.turn, data.dice);
+    
+    if (validMoves.length === 0) {
+        showToast("No valid moves.");
+        setTimeout(() => {
+            updateGameState({ turn: getNextTurn(data.turn, false, 0), diceState: 'idle', sixCount: 0 });
+        }, 1500);
+    } else {
+        let p = data.players[data.turn];
+        if (p && p.type === 'bot') {
+            let bestMove = getBestBotMove(validMoves, data.dice);
+            setTimeout(() => { executeMoveLogic(bestMove, data.dice); }, 1000);
+        } else {
+            if (validMoves.length === 1) {
+                // Auto move
+                setTimeout(() => { executeMoveLogic(validMoves[0], data.dice); }, 600);
+            } else {
+                highlightValidMoves(validMoves);
+                showToast("Tap a piece to move");
+                // Local only update to allow raycaster click
+                window.localGameData.diceState = 'rolled';
+                if (currentMode === 'online') {
+                    updateGameState({ diceState: 'rolled' });
+                }
+            }
+        }
+    }
+}
+
+function getBestBotMove(validIds, diceValue) {
+    let bestId = validIds[0];
+    let bestScore = -1;
+
+    validIds.forEach(id => {
+        let t = window.localGameData.tokens.find(tk => tk.id === id);
+        let score = 0;
+        let newProg = t.progress === -1 ? 0 : t.progress + diceValue;
+        
+        if (newProg === 56) score += 100; // Winning piece
+        if (t.progress === -1) score += 80; // Out of base is good
+        
+        if (newProg >= 0 && newProg <= 50) {
+            let newGlobal = (startOffsets[t.color] + newProg) % 52;
+            
+            // Check if we capture someone
+            if (!safeSquares.includes(newGlobal)) {
+                let captures = window.localGameData.tokens.some(other => {
+                    if (other.color !== t.color && other.progress >= 0 && other.progress <= 50) {
+                        let otherGlobal = (startOffsets[other.color] + other.progress) % 52;
+                        return otherGlobal === newGlobal;
+                    }
+                    return false;
+                });
+                if (captures) score += 90;
+            }
+            // Safe square landing
+            if (safeSquares.includes(newGlobal)) score += 50;
+        }
+        score += newProg; // Favor pieces closer to finish
+        
+        // Add tiny randomness to break ties
+        score += Math.random() * 5;
+
+        if (score > bestScore) { bestScore = score; bestId = id; }
+    });
+    return bestId;
+}
+
+function executeMoveLogic(tokenId, diceValue) {
+    clearHighlights();
+    
+    // Deep copy tokens to mutate
+    let tokens = JSON.parse(JSON.stringify(window.localGameData.tokens));
+    let t = tokens.find(tk => tk.id === tokenId);
+    let extraTurn = false;
+    let newSixCount = diceValue === 6 ? window.localGameData.sixCount + 1 : 0;
+
+    if (newSixCount === 3) {
+        showToast("Three 6s! Turn lost.");
+        updateGameState({ turn: getNextTurn(window.localGameData.turn, false, 0), diceState: 'idle', sixCount: 0 });
+        return;
+    }
+
+    if (t.progress === -1) {
+        t.progress = 0;
+    } else {
+        t.progress += diceValue;
+    }
+
+    if (t.progress === 56) extraTurn = true;
+
+    // Capture Check
+    if (t.progress >= 0 && t.progress <= 50) {
+        let globalIndex = (startOffsets[t.color] + t.progress) % 52;
+        if (!safeSquares.includes(globalIndex)) {
+            tokens.forEach(other => {
+                if (other.color !== t.color && other.progress >= 0 && other.progress <= 50) {
+                    let otherGlobal = (startOffsets[other.color] + other.progress) % 52;
+                    if (otherGlobal === globalIndex) {
+                        other.progress = -1; // Captured!
+                        extraTurn = true;
+                        showToast(`${t.color.toUpperCase()} captured ${other.color.toUpperCase()}! ⚔️`);
+                    }
+                }
+            });
+        }
+    }
+
+    if (diceValue === 6) extraTurn = true;
+
+    // Win Check
+    let winner = window.localGameData.winner;
+    let myTokens = tokens.filter(tk => tk.color === t.color);
+    if (myTokens.every(tk => tk.progress === 56)) {
+        winner = t.color;
+    }
+
+    updateGameState({
+        tokens: tokens,
+        turn: winner ? window.localGameData.turn : getNextTurn(window.localGameData.turn, extraTurn, newSixCount),
+        diceState: 'idle',
+        sixCount: newSixCount,
+        winner: winner
+    });
+}
+
+function updateGameUI(data) {
+    let td = document.getElementById('turn-display');
+    td.className = `turn-indicator turn-${data.turn} mx-auto pointer-events-auto shadow-2xl backdrop-blur-md`;
+    let pName = data.players[data.turn] ? data.players[data.turn].name : data.turn;
+    td.innerText = `${pName}'s Turn`;
+    
+    if (currentMode === 'online') {
+        document.getElementById('game-room-info').classList.remove('hidden');
+        document.getElementById('game-room-code').innerText = currentRoom;
+    } else {
+        document.getElementById('game-room-info').classList.add('hidden');
+    }
+
+    let btnRoll = document.getElementById('btn-roll');
+    if (isLocalController(data.turn) && data.diceState === 'idle' && !data.winner) {
+        btnRoll.disabled = false;
+        // Don't pulse if it's a bot's turn to roll
+        let p = data.players[data.turn];
+        if (p && p.type !== 'bot') {
+            btnRoll.classList.add('animate-pulse');
+        }
+    } else {
+        btnRoll.disabled = true;
+        btnRoll.classList.remove('animate-pulse');
+    }
+}
+
+let scene, camera, renderer, diceMesh;
+let tokenMeshes = {};
+let interactableMeshes = [];
+let meshToToken = {};
+
+const pathMap = [
+    [1, 6], [2, 6], [3, 6], [4, 6], [5, 6],
+    [6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [6, 0],
+    [7, 0], [8, 0],
+    [8, 1], [8, 2], [8, 3], [8, 4], [8, 5],
+    [9, 6], [10, 6], [11, 6], [12, 6], [13, 6], [14, 6],
+    [14, 7], [14, 8],
+    [13, 8], [12, 8], [11, 8], [10, 8], [9, 8],
+    [8, 9], [8, 10], [8, 11], [8, 12], [8, 13], [8, 14],
+    [7, 14], [6, 14],
+    [6, 13], [6, 12], [6, 11], [6, 10], [6, 9],
+    [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
+    [0, 7], [0, 6]
+];
+
+const homePaths = {
+    red: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7]],
+    green: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5]],
+    yellow: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7]],
+    blue: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9]]
+};
+
+const bases = {
+    red: [[2, 2], [3, 2], [2, 3], [3, 3]],
+    green: [[11, 2], [12, 2], [11, 3], [12, 3]],
+    yellow: [[11, 11], [12, 11], [11, 12], [12, 12]],
+    blue: [[2, 11], [3, 11], [2, 12], [3, 12]]
+};
+
+const baseColors = { red: 0xff4757, green: 0x2ed573, yellow: 0xffa502, blue: 0x1e90ff };
+
+function initThreeJS() {
+    let container = document.getElementById('canvas-container');
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a202c);
+    scene.fog = new THREE.Fog(0x1a202c, 20, 50);
+    
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 22, 16);
+    camera.lookAt(0, 0, 0);
+    
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // Lights
+    let ambLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambLight);
+    
+    let dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(10, 25, 10);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.camera.left = -15;
+    dirLight.shadow.camera.right = 15;
+    dirLight.shadow.camera.top = 15;
+    dirLight.shadow.camera.bottom = -15;
+    scene.add(dirLight);
+
+    createBoard();
+    createTokensMesh();
+    initDice();
+
+    window.addEventListener('resize', onWindowResize);
+    window.addEventListener('pointerdown', onPointerDown);
+
+    animateLoop();
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function createBoard() {
+    const bOffset = 7;
+    
+    // Main Wood Base
+    let baseGeo = new THREE.BoxGeometry(16.5, 1, 16.5);
+    let baseMat = new THREE.MeshLambertMaterial({ color: 0xdcdde1 }); // subtle tone
+    let baseMesh = new THREE.Mesh(baseGeo, baseMat);
+    baseMesh.position.y = -0.6;
+    baseMesh.receiveShadow = true;
+    baseMesh.castShadow = true;
+    scene.add(baseMesh);
+
+    let tileGeo = new THREE.BoxGeometry(0.95, 0.3, 0.95);
+    
+    // Corners
+    const corners = [
+        { color: 'red', x: -4, z: -4 },
+        { color: 'green', x: 4, z: -4 },
+        { color: 'yellow', x: 4, z: 4 },
+        { color: 'blue', x: -4, z: 4 }
+    ];
+    
+    corners.forEach(c => {
+        // Colored square
+        let cGeo = new THREE.BoxGeometry(6, 0.35, 6);
+        let cMat = new THREE.MeshLambertMaterial({ color: baseColors[c.color] });
+        let cMesh = new THREE.Mesh(cGeo, cMat);
+        cMesh.position.set(c.x, -0.2, c.z);
+        cMesh.receiveShadow = true;
+        scene.add(cMesh);
+        
+        // Inner white square
+        let iGeo = new THREE.BoxGeometry(4.5, 0.38, 4.5);
+        let iMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+        let iMesh = new THREE.Mesh(iGeo, iMat);
+        iMesh.position.set(c.x, -0.19, c.z);
+        iMesh.receiveShadow = true;
+        scene.add(iMesh);
+
+        // 4 Start circles
+        bases[c.color].forEach(pos => {
+            let circGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.1, 32);
+            let circMat = new THREE.MeshLambertMaterial({ color: baseColors[c.color] });
+            let circMesh = new THREE.Mesh(circGeo, circMat);
+            circMesh.position.set(pos[0] - bOffset, -0.15, pos[1] - bOffset);
+            scene.add(circMesh);
+        });
+    });
+
+    // Track
+    for (let i = 0; i < 52; i++) {
+        let p = pathMap[i];
+        let color = 0xffffff;
+        if (safeSquares.includes(i)) color = 0xbdc3c7;
+        
+        if (i === 0) color = baseColors.red;
+        if (i === 13) color = baseColors.green;
+        if (i === 26) color = baseColors.yellow;
+        if (i === 39) color = baseColors.blue;
+
+        let mat = new THREE.MeshLambertMaterial({ color: color });
+        let mesh = new THREE.Mesh(tileGeo, mat);
+        mesh.position.set(p[0] - bOffset, -0.15, p[1] - bOffset);
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+    }
+
+    // Home paths
+    ['red', 'green', 'yellow', 'blue'].forEach(col => {
+        homePaths[col].forEach((p) => {
+            let mat = new THREE.MeshLambertMaterial({ color: baseColors[col] });
+            let mesh = new THREE.Mesh(tileGeo, mat);
+            mesh.position.set(p[0] - bOffset, -0.15, p[1] - bOffset);
+            mesh.receiveShadow = true;
+            scene.add(mesh);
+        });
+    });
+
+    // Center Finish (Pyramid shape)
+    let centerGeo = new THREE.ConeGeometry(2, 1, 4);
+    let centerMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+    let centerMesh = new THREE.Mesh(centerGeo, centerMat);
+    centerMesh.position.set(0, 0.3, 0);
+    centerMesh.rotation.y = Math.PI / 4;
+    centerMesh.receiveShadow = true;
+    centerMesh.castShadow = true;
+    scene.add(centerMesh);
+}
+
+function createTokensMesh() {
+    let tData = initialTokensState();
+    tData.forEach(t => {
+        let group = new THREE.Group();
+        group.userData = { id: t.id, pulsing: false };
+        
+        let baseGeo = new THREE.CylinderGeometry(0.35, 0.45, 0.2, 32);
+        let topGeo = new THREE.SphereGeometry(0.35, 32, 16);
+        let mat = new THREE.MeshPhongMaterial({ 
+            color: baseColors[t.color], 
+            shininess: 120,
+            specular: 0x666666
+        });
+        
+        let baseMesh = new THREE.Mesh(baseGeo, mat);
+        baseMesh.position.y = 0.1;
+        baseMesh.castShadow = true;
+        
+        let topMesh = new THREE.Mesh(topGeo, mat);
+        topMesh.position.y = 0.4;
+        topMesh.castShadow = true;
+        
+        group.add(baseMesh);
+        group.add(topMesh);
+        
+        // Hide initially until game starts
+        group.position.set(0, -10, 0);
+        
+        scene.add(group);
+        tokenMeshes[t.id] = group;
+        interactableMeshes.push(baseMesh, topMesh);
+        meshToToken[baseMesh.uuid] = t.id;
+        meshToToken[topMesh.uuid] = t.id;
+    });
+}
+
+function getPositionCoords(token) {
+    const bOffset = 7;
+    if (token.progress === -1) {
+        let b = bases[token.color][token.baseIndex];
+        return { x: b[0] - bOffset, z: b[1] - bOffset };
+    } else if (token.progress >= 0 && token.progress <= 50) {
+        let globalIndex = (startOffsets[token.color] + token.progress) % 52;
+        let p = pathMap[globalIndex];
+        return { x: p[0] - bOffset, z: p[1] - bOffset };
+    } else if (token.progress >= 51 && token.progress <= 55) {
+        let h = homePaths[token.color][token.progress - 51];
+        return { x: h[0] - bOffset, z: h[1] - bOffset };
+    } else if (token.progress === 56) {
+        // cluster around center cone
+        let f = { red: {x:-1,z:-1}, green: {x:1,z:-1}, yellow: {x:1,z:1}, blue: {x:-1,z:1} }[token.color];
+        return { x: f.x*0.8, z: f.z*0.8 }; 
+    }
+    return { x:0, z:0 };
+}
+
+function renderTokensInstantly() {
+    let positions = {};
+    window.localGameData.tokens.forEach(t => {
+        let coord = getPositionCoords(t);
+        let key = `${coord.x.toFixed(1)},${coord.z.toFixed(1)}`;
+        if (!positions[key]) positions[key] = [];
+        positions[key].push(t);
+    });
+
+    for (let key in positions) {
+        let arr = positions[key];
+        arr.forEach((t, i) => {
+            let coord = getPositionCoords(t);
+            let mesh = tokenMeshes[t.id];
+            
+            let ox = 0, oz = 0;
+            if (arr.length > 1 && t.progress !== -1 && t.progress !== 56) {
+                let offsets = [ [-0.2,-0.2], [0.2,-0.2], [-0.2,0.2], [0.2,0.2] ];
+                ox = offsets[i % 4][0]; oz = offsets[i % 4][1];
+            }
+            mesh.position.set(coord.x + ox, 0, coord.z + oz);
+        });
+    }
+}
+
+function animateTokensToPositions() {
+    let positions = {};
+    window.localGameData.tokens.forEach(t => {
+        let coord = getPositionCoords(t);
+        let key = `${coord.x.toFixed(1)},${coord.z.toFixed(1)}`;
+        if (!positions[key]) positions[key] = [];
+        positions[key].push(t);
+    });
+
+    for (let key in positions) {
+        let arr = positions[key];
+        arr.forEach((t, i) => {
+            let coord = getPositionCoords(t);
+            let mesh = tokenMeshes[t.id];
+            
+            let ox = 0, oz = 0;
+            if (arr.length > 1 && t.progress !== -1 && t.progress !== 56) {
+                let offsets = [ [-0.2,-0.2], [0.2,-0.2], [-0.2,0.2], [0.2,0.2] ];
+                ox = offsets[i % 4][0]; oz = offsets[i % 4][1];
+            }
+            
+            // Hop animation
+            let dist = Math.hypot(mesh.position.x - (coord.x+ox), mesh.position.z - (coord.z+oz));
+            if (dist > 0.1) {
+                new TWEEN.Tween(mesh.position)
+                    .to({ x: coord.x + ox, z: coord.z + oz }, 400)
+                    .easing(TWEEN.Easing.Quadratic.Out)
+                    .start();
+                    
+                // Arc height
+                let h = new TWEEN.Tween(mesh.position)
+                    .to({ y: 1.5 }, 200)
+                    .easing(TWEEN.Easing.Quadratic.Out)
+                    .yoyo(true)
+                    .repeat(1)
+                    .start();
+            }
+        });
+    }
+}
+
+function createDiceMaterial(num) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 256, 256);
+    
+    // Rounded border
+    ctx.strokeStyle = '#dddddd';
+    ctx.lineWidth = 15;
+    ctx.lineJoin = 'round';
+    ctx.strokeRect(10, 10, 236, 236);
+    
+    ctx.fillStyle = '#111111';
+    const drawDot = (x, y) => { ctx.beginPath(); ctx.arc(x, y, 24, 0, Math.PI * 2); ctx.fill(); };
+
+    const c = 128, p1 = 64, p2 = 192;
+    if (num === 1) { ctx.fillStyle='#ff4757'; drawDot(c, c); }
+    if (num === 2) { drawDot(p1, p1); drawDot(p2, p2); }
+    if (num === 3) { drawDot(p1, p1); drawDot(c, c); drawDot(p2, p2); }
+    if (num === 4) { drawDot(p1, p1); drawDot(p2, p1); drawDot(p1, p2); drawDot(p2, p2); }
+    if (num === 5) { drawDot(p1, p1); drawDot(p2, p1); drawDot(c, c); drawDot(p1, p2); drawDot(p2, p2); }
+    if (num === 6) { drawDot(p1, p1); drawDot(p2, p1); drawDot(p1, c); drawDot(p2, c); drawDot(p1, p2); drawDot(p2, p2); }
+    
+    let tex = new THREE.CanvasTexture(canvas);
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    return new THREE.MeshLambertMaterial({ map: tex });
+}
+
+function initDice() {
+    let materials = [
+        createDiceMaterial(3), // Right (x+)
+        createDiceMaterial(4), // Left (x-)
+        createDiceMaterial(1), // Top (y+)
+        createDiceMaterial(6), // Bottom (y-)
+        createDiceMaterial(2), // Front (z+)
+        createDiceMaterial(5)  // Back (z-)
+    ];
+    // Slightly rounded box
+    let geo = new THREE.BoxGeometry(1.6, 1.6, 1.6);
+    diceMesh = new THREE.Mesh(geo, materials);
+    diceMesh.position.set(0, 0.8, 0); 
+    diceMesh.castShadow = true;
+    diceMesh.receiveShadow = true;
+    scene.add(diceMesh);
+}
+
+function rollDiceVisual(finalValue, callback) {
+    let spins = 4;
+    let targetRot = { x: 0, y: 0, z: 0 };
+    
+    // Face mapping
+    if (finalValue === 1) targetRot = { x: 0, y: 0, z: 0 }; // Top
+    if (finalValue === 6) targetRot = { x: Math.PI, y: 0, z: 0 }; // Bottom
+    if (finalValue === 2) targetRot = { x: -Math.PI/2, y: 0, z: 0 }; // Front
+    if (finalValue === 5) targetRot = { x: Math.PI/2, y: 0, z: 0 }; // Back
+    if (finalValue === 3) targetRot = { x: 0, y: 0, z: -Math.PI/2 }; // Right
+    if (finalValue === 4) targetRot = { x: 0, y: 0, z: Math.PI/2 }; // Left
+
+    // Add extra spins
+    targetRot.x += Math.PI * 2 * spins;
+    targetRot.y += Math.PI * 2 * spins;
+    
+    // Reset starting point to simulate violent shake
+    diceMesh.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+    diceMesh.position.y = 8;
+
+    new TWEEN.Tween(diceMesh.position)
+        .to({ y: 0.8 }, 1200)
+        .easing(TWEEN.Easing.Bounce.Out)
+        .start();
+
+    new TWEEN.Tween(diceMesh.rotation)
+        .to(targetRot, 1200)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .onComplete(callback)
+        .start();
+}
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+function onPointerDown(event) {
+    if (window.currentScreen !== 'game-ui') return;
+    if (event.target.closest('.pointer-events-auto')) return; // Ignore UI clicks
+    if (!isLocalController(window.localGameData.turn) || window.localGameData.diceState !== 'rolled') return;
+    
+    // Handle touch or mouse
+    let clientX = event.clientX || (event.touches && event.touches[0].clientX);
+    let clientY = event.clientY || (event.touches && event.touches[0].clientY);
+    
+    if(clientX === undefined) return;
+
+    mouse.x = (clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+    
+    raycaster.setFromCamera(mouse, camera);
+    let intersects = raycaster.intersectObjects(interactableMeshes);
+    
+    if (intersects.length > 0) {
+        let mesh = intersects[0].object;
+        let tokenId = meshToToken[mesh.uuid];
+        if (tokenId) {
+            let t = window.localGameData.tokens.find(x => x.id === tokenId);
+            if (t && t.color === window.localGameData.turn) {
+                let validMoves = getValidMoves(window.localGameData.turn, window.localGameData.dice);
+                if (validMoves.includes(tokenId)) {
+                    executeMoveLogic(tokenId, window.localGameData.dice);
+                } else {
+                    showToast("This piece cannot move right now.");
+                }
+            }
+        }
+    }
+}
+
+function highlightValidMoves(validIds) {
+    validIds.forEach(id => {
+        let group = tokenMeshes[id];
+        group.userData.pulsing = true;
+        group.children.forEach(m => m.material.emissive.setHex(0x444444));
+    });
+}
+
+function clearHighlights() {
+    Object.values(tokenMeshes).forEach(group => {
+        group.userData.pulsing = false;
+        group.scale.set(1, 1, 1);
+        group.children.forEach(m => m.material.emissive.setHex(0x000000));
+    });
+}
+
+function clearBoard() {
+    // Hide tokens on quit
+    Object.values(tokenMeshes).forEach(group => group.position.set(0, -10, 0));
+}
+
+let confettiParticles = null;
+function triggerConfetti() {
+    if (confettiParticles) return;
+    let pGeo = new THREE.BufferGeometry();
+    let pCount = 800;
+    let pos = new Float32Array(pCount * 3);
+    let colors = new Float32Array(pCount * 3);
+    for(let i=0; i<pCount; i++) {
+        pos[i*3] = (Math.random() - 0.5) * 30;
+        pos[i*3+1] = 10 + Math.random() * 20;
+        pos[i*3+2] = (Math.random() - 0.5) * 30;
+        
+        let c = new THREE.Color();
+        c.setHSL(Math.random(), 1.0, 0.5);
+        colors[i*3] = c.r; colors[i*3+1] = c.g; colors[i*3+2] = c.b;
+    }
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    pGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    let pMat = new THREE.PointsMaterial({ size: 0.4, vertexColors: true });
+    confettiParticles = new THREE.Points(pGeo, pMat);
+    scene.add(confettiParticles);
+}
+
+function animateLoop(time) {
+    requestAnimationFrame(animateLoop);
+    TWEEN.update(time);
+    
+    // Pulsing effect
+    let now = Date.now();
+    Object.values(tokenMeshes).forEach(group => {
+        if (group.userData.pulsing) {
+            let s = 1 + Math.sin(now * 0.008) * 0.15;
+            group.scale.set(s, s, s);
+        }
+    });
+
+    if (confettiParticles) {
+        let p = confettiParticles.geometry.attributes.position.array;
+        for(let i=1; i<p.length; i+=3) {
+            p[i] -= 0.15;
+            if(p[i] < -5) p[i] = 25;
+        }
+        confettiParticles.geometry.attributes.position.needsUpdate = true;
+    }
+    
+    // Gentle camera orbit when idle in menu
+    if (window.currentScreen === 'screen-menu' && camera) {
+        camera.position.x = Math.sin(now * 0.0002) * 20;
+        camera.position.z = Math.cos(now * 0.0002) * 20;
+        camera.lookAt(0,0,0);
+    } else if (camera) {
+        // Fixed gameplay camera
+        camera.position.set(0, 22, 16);
+        camera.lookAt(0, 0, 0);
+    }
+
+    if(renderer && scene && camera) {
+        renderer.render(scene, camera);
+    }
+}
+
+window.onload = init;
+</script>
 </body>
 </html>
